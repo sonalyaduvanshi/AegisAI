@@ -21,6 +21,8 @@ from Agents.log_agent import LogAgent
 from Agents.deployment_agent import DeploymentAgent
 from Agents.code_agent import CodeAgent
 from Agents.root_cause_agent import RootCauseAgent
+from Agents.knowledge_agent import KnowledgeAgent
+from Agents.remediation_agent import RemediationAgent
 
 
 # =========================================================
@@ -45,25 +47,19 @@ class AegisOrchestrator:
 
     def execute_agent(self, agent, agent_name):
 
-        """
-        Different agents may expose different method names.
-
-        This function safely checks which method exists.
-        """
-
         print("\n----------------------------------------")
         print(f"Executing {agent_name}")
         print("----------------------------------------")
 
         try:
 
-            # Metrics / Logs / Deployment / Root Cause
+            # Most AegisAI agents use investigate()
             if hasattr(agent, "investigate"):
 
                 return agent.investigate()
 
 
-            # Code Agent may use analyze()
+            # Some agents may use analyze()
             elif hasattr(agent, "analyze"):
 
                 return agent.analyze()
@@ -90,9 +86,7 @@ class AegisOrchestrator:
 
         except Exception as error:
 
-            print(
-                f"❌ {agent_name} failed:"
-            )
+            print(f"❌ {agent_name} failed:")
 
             print(
                 type(error).__name__,
@@ -118,7 +112,6 @@ class AegisOrchestrator:
         print("========================================\n")
 
         print("Orchestrator:", self.name)
-
         print("Role:", self.role)
 
 
@@ -126,7 +119,7 @@ class AegisOrchestrator:
         # 1. METRICS AGENT
         # =================================================
 
-        print("\n[1/5] Running Metrics Agent...")
+        print("\n[1/7] Running Metrics Agent...")
 
         metrics_agent = MetricsAgent()
 
@@ -140,7 +133,7 @@ class AegisOrchestrator:
         # 2. LOG AGENT
         # =================================================
 
-        print("\n[2/5] Running Log Agent...")
+        print("\n[2/7] Running Log Agent...")
 
         log_agent = LogAgent()
 
@@ -154,7 +147,7 @@ class AegisOrchestrator:
         # 3. DEPLOYMENT AGENT
         # =================================================
 
-        print("\n[3/5] Running Deployment Agent...")
+        print("\n[3/7] Running Deployment Agent...")
 
         deployment_agent = DeploymentAgent()
 
@@ -168,7 +161,7 @@ class AegisOrchestrator:
         # 4. CODE AGENT
         # =================================================
 
-        print("\n[4/5] Running Code Agent...")
+        print("\n[4/7] Running Code Agent...")
 
         code_agent = CodeAgent()
 
@@ -182,7 +175,7 @@ class AegisOrchestrator:
         # 5. ROOT CAUSE AGENT
         # =================================================
 
-        print("\n[5/5] Running Root Cause Agent...")
+        print("\n[5/7] Running Root Cause Agent...")
 
         root_cause_agent = RootCauseAgent()
 
@@ -193,7 +186,35 @@ class AegisOrchestrator:
 
 
         # =================================================
-        # FINAL SYSTEM SUMMARY
+        # 6. KNOWLEDGE AGENT
+        # =================================================
+
+        print("\n[6/7] Running Knowledge Agent...")
+
+        knowledge_agent = KnowledgeAgent()
+
+        knowledge_result = self.execute_agent(
+            knowledge_agent,
+            "KnowledgeAgent"
+        )
+
+
+        # =================================================
+        # 7. REMEDIATION AGENT
+        # =================================================
+
+        print("\n[7/7] Running Remediation Agent...")
+
+        remediation_agent = RemediationAgent()
+
+        remediation_result = self.execute_agent(
+            remediation_agent,
+            "RemediationAgent"
+        )
+
+
+        # =================================================
+        # INVESTIGATION SUMMARY
         # =================================================
 
         print("\n========================================")
@@ -246,14 +267,38 @@ class AegisOrchestrator:
         )
 
 
+        print(
+            "Knowledge Agent:",
+            knowledge_result.get(
+                "status",
+                "UNKNOWN"
+            )
+        )
+
+
+        print(
+            "Remediation Agent:",
+            remediation_result.get(
+                "status",
+                "UNKNOWN"
+            )
+        )
+
+
         # =================================================
-        # ROOT CAUSE DETAILS
+        # FINAL INCIDENT RESULT
         # =================================================
 
         print("\n========================================")
-        print("       AEGISAI FINAL RESULT")
+        print("       AEGISAI FINAL INCIDENT RESULT")
         print("========================================\n")
 
+
+        # -------------------------------------------------
+        # ROOT CAUSE
+        # -------------------------------------------------
+
+        print("ROOT CAUSE")
 
         if "confidence" in root_cause_result:
 
@@ -266,7 +311,7 @@ class AegisOrchestrator:
         if "root_cause" in root_cause_result:
 
             print(
-                "Root Cause:",
+                "Assessment:",
                 root_cause_result["root_cause"]
             )
 
@@ -276,6 +321,94 @@ class AegisOrchestrator:
             print(
                 "Message:",
                 root_cause_result["message"]
+            )
+
+
+        # -------------------------------------------------
+        # KNOWLEDGE
+        # -------------------------------------------------
+
+        print("\nKNOWLEDGE")
+
+        if "match_count" in knowledge_result:
+
+            print(
+                "Historical Matches:",
+                knowledge_result["match_count"]
+            )
+
+
+        if "matches" in knowledge_result:
+
+            for index, match in enumerate(
+                knowledge_result["matches"],
+                start=1
+            ):
+
+                print(
+                    f"\nHistorical Match {index}:"
+                )
+
+                if isinstance(match, dict):
+
+                    print(
+                        "Incident:",
+                        match.get(
+                            "incident_id",
+                            "UNKNOWN"
+                        )
+                    )
+
+                    print(
+                        "Title:",
+                        match.get(
+                            "title",
+                            "UNKNOWN"
+                        )
+                    )
+
+                    print(
+                        "Root Cause:",
+                        match.get(
+                            "root_cause",
+                            "UNKNOWN"
+                        )
+                    )
+
+                    print(
+                        "Resolution:",
+                        match.get(
+                            "resolution",
+                            "UNKNOWN"
+                        )
+                    )
+
+
+        # -------------------------------------------------
+        # REMEDIATION
+        # -------------------------------------------------
+
+        print("\nREMEDIATION")
+
+        if "action_count" in remediation_result:
+
+            print(
+                "Recommended Actions:",
+                remediation_result["action_count"]
+            )
+
+        elif "actions_generated" in remediation_result:
+
+            print(
+                "Recommended Actions:",
+                remediation_result["actions_generated"]
+            )
+
+        elif "actions" in remediation_result:
+
+            print(
+                "Recommended Actions:",
+                len(remediation_result["actions"])
             )
 
 
@@ -297,7 +430,11 @@ class AegisOrchestrator:
 
             "code": code_result,
 
-            "root_cause": root_cause_result
+            "root_cause": root_cause_result,
+
+            "knowledge": knowledge_result,
+
+            "remediation": remediation_result
 
         }
 
