@@ -1,0 +1,12 @@
+timestamp,service,level,message
+2026-09-22 10:00,auth-service,INFO,Authentication request processed successfully
+2026-09-22 10:01,auth-service,INFO,Authentication request processed successfully
+2026-09-22 10:02,auth-service,INFO,Authentication request processed successfully
+2026-09-22 10:03,auth-service,INFO,Authentication request processed successfully
+2026-09-22 10:04,auth-service,INFO,Authentication request processed successfully
+2026-09-22 10:05,auth-service,WARN,Database query latency increased
+2026-09-22 10:06,auth-service,WARN,Database connection pool utilization above 80 percent
+2026-09-22 10:07,auth-service,ERROR,Database connection pool nearly exhausted
+2026-09-22 10:08,auth-service,ERROR,Request timeout while waiting for database connection
+2026-09-22 10:09,auth-service,ERROR,Authentication request failed due to database timeout
+2026-09-22 10:10,auth-service,CRITICAL,Database connection pool exhausted

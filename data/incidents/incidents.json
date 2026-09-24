@@ -1,0 +1,18 @@
+[
+    {
+    "incident_id": "INC-001",
+    "title": "Authentication API degradation",
+    "service": "auth-service",
+    "severity": "CRITICAL",
+    "start_time": "2026-09-22 10:05",
+    "symptoms": [
+    "API latency increased",
+    "Error rate increased",
+    "Database CPU increased",
+    "Database connection pool exhausted"
+    ],
+    "root_cause": "Database connection pool exhaustion after authentication deployment",
+    "resolution": "Rollback deployment and increase connection pool configuration",
+    "affected_version": "v2.4.1"
+    }
+]
