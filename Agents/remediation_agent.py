@@ -54,12 +54,17 @@ class RemediationAgent:
             "for detected production incidents"
         )
 
-
     # =====================================================
-    # INVESTIGATE / REMEDIATE
+    # INVESTIGATE
     # =====================================================
 
-    def investigate(self):
+    def investigate(
+        self,
+        metrics_result=None,
+        log_result=None,
+        deployment_result=None,
+        root_cause_result=None
+    ):
 
         print("\n========================================")
         print("        REMEDIATION AGENT")
@@ -67,7 +72,6 @@ class RemediationAgent:
 
         print(f"Agent: {self.name}")
         print(f"Role: {self.role}")
-
 
         # =================================================
         # LOAD DATA
@@ -77,7 +81,6 @@ class RemediationAgent:
         logs = None
         deployments = None
 
-
         # -------------------------------------------------
         # Metrics
         # -------------------------------------------------
@@ -85,13 +88,15 @@ class RemediationAgent:
         if METRICS_FILE.exists():
 
             try:
-                metrics = pd.read_csv(METRICS_FILE)
+
+                metrics = pd.read_csv(
+                    METRICS_FILE
+                )
 
             except Exception as error:
 
-                print("\n⚠️ Could not read metrics:")
+                print("\nCould not read metrics:")
                 print(error)
-
 
         # -------------------------------------------------
         # Logs
@@ -100,13 +105,15 @@ class RemediationAgent:
         if LOG_FILE.exists():
 
             try:
-                logs = pd.read_csv(LOG_FILE)
+
+                logs = pd.read_csv(
+                    LOG_FILE
+                )
 
             except Exception as error:
 
-                print("\n⚠️ Could not read logs:")
+                print("\nCould not read logs:")
                 print(error)
-
 
         # -------------------------------------------------
         # Deployments
@@ -115,41 +122,52 @@ class RemediationAgent:
         if DEPLOYMENT_FILE.exists():
 
             try:
+
                 deployments = pd.read_csv(
                     DEPLOYMENT_FILE
                 )
 
             except Exception as error:
 
-                print("\n⚠️ Could not read deployments:")
+                print("\nCould not read deployments:")
                 print(error)
-
 
         # =================================================
         # DETERMINE INCIDENT
         # =================================================
 
         anomaly_count = 0
-
         first_anomaly = None
-
         service = "unknown"
 
+        # =================================================
+        # PRIMARY SOURCE:
+        # USE METRICS AGENT RESULT
+        # =================================================
 
-        if metrics is not None:
+        if metrics_result:
 
-            if "status" in metrics.columns:
+            anomaly_count = metrics_result.get(
+                "anomaly_count",
+                metrics_result.get(
+                    "anomalies_count",
+                    0
+                )
+            )
 
-                anomalies = metrics[
-                    metrics["status"] == "ANOMALY"
-                ]
+            anomalies = metrics_result.get(
+                "anomalies",
+                []
+            )
 
-                anomaly_count = len(anomalies)
+            if anomalies:
 
+                first_anomaly = anomalies[0]
 
-                if not anomalies.empty:
-
-                    first_anomaly = anomalies.iloc[0]
+                if isinstance(
+                    first_anomaly,
+                    dict
+                ):
 
                     service = str(
                         first_anomaly.get(
@@ -158,15 +176,53 @@ class RemediationAgent:
                         )
                     )
 
+        # =================================================
+        # FALLBACK:
+        # READ METRICS CSV
+        # =================================================
+
+        if (
+            anomaly_count == 0
+            and metrics is not None
+        ):
+
+            if "status" in metrics.columns:
+
+                status_values = (
+                    metrics["status"]
+                    .astype(str)
+                    .str.strip()
+                    .str.upper()
+                )
+
+                anomalies = metrics[
+                    status_values == "ANOMALY"
+                ]
+
+                anomaly_count = len(
+                    anomalies
+                )
+
+                if not anomalies.empty:
+
+                    first_anomaly = (
+                        anomalies.iloc[0]
+                    )
+
+                    service = str(
+                        first_anomaly.get(
+                            "service",
+                            "unknown"
+                        )
+                    )
 
         # =================================================
-        # PRINT INCIDENT INFORMATION
+        # INCIDENT ASSESSMENT
         # =================================================
 
         print("\n========================================")
         print("        INCIDENT ASSESSMENT")
         print("========================================")
-
 
         print(
             "\nAnomalies detected:",
@@ -178,13 +234,11 @@ class RemediationAgent:
             service
         )
 
-
         # =================================================
         # FIND LATEST DEPLOYMENT
         # =================================================
 
         latest_deployment = None
-
 
         if deployments is not None:
 
@@ -198,8 +252,11 @@ class RemediationAgent:
                         )
                     )
 
-                    deployments = deployments.sort_values(
-                        "timestamp"
+                    deployments = (
+                        deployments
+                        .sort_values(
+                            "timestamp"
+                        )
                     )
 
                     latest_deployment = (
@@ -209,10 +266,9 @@ class RemediationAgent:
                 except Exception as error:
 
                     print(
-                        "\n⚠️ Deployment analysis failed:",
+                        "\nDeployment analysis failed:",
                         error
                     )
-
 
         # =================================================
         # REMEDIATION PLAN
@@ -220,10 +276,9 @@ class RemediationAgent:
 
         actions = []
 
-
-        # -------------------------------------------------
-        # ACTION 1 - Deployment rollback
-        # -------------------------------------------------
+        # =================================================
+        # ACTION 1
+        # =================================================
 
         if latest_deployment is not None:
 
@@ -248,109 +303,132 @@ class RemediationAgent:
                 )
             )
 
-
             actions.append(
                 {
                     "priority": "P0",
-                    "action": "Rollback deployment",
+
+                    "action":
+                        "Rollback deployment",
+
                     "reason": (
-                        f"Recent deployment {version} "
-                        f"({commit_id}) is temporally "
-                        "associated with the incident."
+                        f"Recent deployment "
+                        f"{version} ({commit_id}) "
+                        "is temporally associated "
+                        "with the incident."
                     ),
+
                     "details": (
-                        f"Review or rollback {version} "
-                        f"before further production impact. "
-                        f"Deployment change: {change}"
+                        f"Review or rollback "
+                        f"{version} before further "
+                        "production impact. "
+                        f"Deployment change: "
+                        f"{change}"
                     )
                 }
             )
 
-
-        # -------------------------------------------------
-        # ACTION 2 - Database investigation
-        # -------------------------------------------------
+        # =================================================
+        # ACTION 2
+        # =================================================
 
         actions.append(
             {
                 "priority": "P0",
-                "action": "Investigate database connection pool",
+
+                "action":
+                    "Investigate database connection pool",
+
                 "reason": (
-                    "Production logs indicate increasing "
-                    "database connection pressure."
+                    "Production logs indicate "
+                    "increasing database "
+                    "connection pressure."
                 ),
+
                 "details": (
                     "Inspect connection pool size, "
-                    "connection leaks, query execution time, "
-                    "and database saturation."
+                    "connection leaks, query execution "
+                    "time, and database saturation."
                 )
             }
         )
 
-
-        # -------------------------------------------------
-        # ACTION 3 - Query investigation
-        # -------------------------------------------------
+        # =================================================
+        # ACTION 3
+        # =================================================
 
         actions.append(
             {
                 "priority": "P1",
-                "action": "Review authentication queries",
+
+                "action":
+                    "Review authentication queries",
+
                 "reason": (
-                    "The affected service is auth-service "
-                    "and the latest deployment contains "
-                    "an authentication query change."
+                    "The affected service is "
+                    f"{service} and the latest "
+                    "deployment contains an "
+                    "authentication query change."
                 ),
+
                 "details": (
-                    "Compare query execution plans before "
-                    "and after the deployment. Check indexes, "
-                    "joins, locks and query latency."
+                    "Compare query execution plans "
+                    "before and after the deployment. "
+                    "Check indexes, joins, locks "
+                    "and query latency."
                 )
             }
         )
 
-
-        # -------------------------------------------------
-        # ACTION 4 - Monitor metrics
-        # -------------------------------------------------
+        # =================================================
+        # ACTION 4
+        # =================================================
 
         actions.append(
             {
                 "priority": "P1",
-                "action": "Increase production monitoring",
+
+                "action":
+                    "Increase production monitoring",
+
                 "reason": (
-                    "API latency, error rate and database "
-                    "load increased during the incident."
+                    "API latency, error rate and "
+                    "database load increased "
+                    "during the incident."
                 ),
+
                 "details": (
                     "Monitor API latency, error rate, "
-                    "database CPU, database latency and "
-                    "connection-pool utilization."
+                    "database CPU, database latency "
+                    "and connection-pool utilization."
                 )
             }
         )
 
-
-        # -------------------------------------------------
-        # ACTION 5 - Prevent recurrence
-        # -------------------------------------------------
+        # =================================================
+        # ACTION 5
+        # =================================================
 
         actions.append(
             {
                 "priority": "P2",
-                "action": "Add regression protection",
+
+                "action":
+                    "Add regression protection",
+
                 "reason": (
-                    "A production deployment was followed "
-                    "by database-related degradation."
+                    "A production deployment was "
+                    "followed by database-related "
+                    "degradation."
                 ),
+
                 "details": (
-                    "Add query performance tests, database "
-                    "load tests and deployment health checks "
+                    "Add query performance tests, "
+                    "database load tests and "
+                    "deployment health checks "
                     "before future releases."
                 )
             }
         )
-
 
         # =================================================
         # DISPLAY REMEDIATION PLAN
@@ -359,7 +437,6 @@ class RemediationAgent:
         print("\n========================================")
         print("        RECOMMENDED ACTIONS")
         print("========================================")
-
 
         for index, action in enumerate(
             actions,
@@ -382,9 +459,8 @@ class RemediationAgent:
                 action["details"]
             )
 
-
         # =================================================
-        # SAFETY NOTE
+        # SAFETY
         # =================================================
 
         print("\n========================================")
@@ -392,7 +468,7 @@ class RemediationAgent:
         print("========================================\n")
 
         print(
-            "⚠️ No production changes were executed."
+            "No production changes were executed."
         )
 
         print(
@@ -400,23 +476,26 @@ class RemediationAgent:
             "remediation actions."
         )
 
-
         # =================================================
-        # RETURN STRUCTURED RESULT
+        # RETURN RESULT
         # =================================================
 
         return {
 
-            "agent": self.name,
+            "agent":
+                self.name,
 
-            "status": "REMEDIATION_PLAN_CREATED",
+            "status":
+                "REMEDIATION_PLAN_CREATED",
 
-            "service": service,
+            "service":
+                service,
 
-            "anomaly_count": anomaly_count,
+            "anomaly_count":
+                anomaly_count,
 
-            "actions": actions
-
+            "actions":
+                actions
         }
 
 
@@ -430,11 +509,9 @@ if __name__ == "__main__":
 
     result = agent.investigate()
 
-
     print("\n========================================")
     print("      REMEDIATION AGENT COMPLETED")
     print("========================================\n")
-
 
     print(
         "Final Agent Status:",
@@ -443,5 +520,7 @@ if __name__ == "__main__":
 
     print(
         "Actions Generated:",
-        len(result["actions"])
+        len(
+            result["actions"]
+        )
     )

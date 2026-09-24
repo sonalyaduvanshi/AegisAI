@@ -40,53 +40,66 @@ class AegisOrchestrator:
             "to investigate production incidents"
         )
 
-
     # =====================================================
     # SAFE AGENT EXECUTION
     # =====================================================
 
-    def execute_agent(self, agent, agent_name):
+    def execute_agent(
+        self,
+        agent,
+        agent_name
+    ):
 
         print("\n----------------------------------------")
-        print(f"Executing {agent_name}")
+        print(
+            f"Executing {agent_name}"
+        )
         print("----------------------------------------")
 
         try:
 
-            # Most AegisAI agents use investigate()
-            if hasattr(agent, "investigate"):
+            if hasattr(
+                agent,
+                "investigate"
+            ):
 
                 return agent.investigate()
 
-
-            # Some agents may use analyze()
-            elif hasattr(agent, "analyze"):
+            elif hasattr(
+                agent,
+                "analyze"
+            ):
 
                 return agent.analyze()
 
-
-            # Some agents may use run()
-            elif hasattr(agent, "run"):
+            elif hasattr(
+                agent,
+                "run"
+            ):
 
                 return agent.run()
-
 
             else:
 
                 print(
-                    f"❌ {agent_name} does not expose "
+                    f"{agent_name} does not expose "
                     "investigate(), analyze(), or run()."
                 )
 
                 return {
-                    "agent": agent_name,
-                    "status": "METHOD_NOT_FOUND"
-                }
 
+                    "agent":
+                        agent_name,
+
+                    "status":
+                        "METHOD_NOT_FOUND"
+                }
 
         except Exception as error:
 
-            print(f"❌ {agent_name} failed:")
+            print(
+                f"{agent_name} failed:"
+            )
 
             print(
                 type(error).__name__,
@@ -95,11 +108,16 @@ class AegisOrchestrator:
             )
 
             return {
-                "agent": agent_name,
-                "status": "ERROR",
-                "error": str(error)
-            }
 
+                "agent":
+                    agent_name,
+
+                "status":
+                    "ERROR",
+
+                "error":
+                    str(error)
+            }
 
     # =====================================================
     # RUN FULL INVESTIGATION
@@ -111,15 +129,23 @@ class AegisOrchestrator:
         print("        AEGISAI ORCHESTRATOR")
         print("========================================\n")
 
-        print("Orchestrator:", self.name)
-        print("Role:", self.role)
+        print(
+            "Orchestrator:",
+            self.name
+        )
 
+        print(
+            "Role:",
+            self.role
+        )
 
         # =================================================
         # 1. METRICS AGENT
         # =================================================
 
-        print("\n[1/7] Running Metrics Agent...")
+        print(
+            "\n[1/7] Running Metrics Agent..."
+        )
 
         metrics_agent = MetricsAgent()
 
@@ -128,12 +154,13 @@ class AegisOrchestrator:
             "MetricsAgent"
         )
 
-
         # =================================================
         # 2. LOG AGENT
         # =================================================
 
-        print("\n[2/7] Running Log Agent...")
+        print(
+            "\n[2/7] Running Log Agent..."
+        )
 
         log_agent = LogAgent()
 
@@ -142,26 +169,32 @@ class AegisOrchestrator:
             "LogAgent"
         )
 
-
         # =================================================
         # 3. DEPLOYMENT AGENT
         # =================================================
 
-        print("\n[3/7] Running Deployment Agent...")
-
-        deployment_agent = DeploymentAgent()
-
-        deployment_result = self.execute_agent(
-            deployment_agent,
-            "DeploymentAgent"
+        print(
+            "\n[3/7] Running Deployment Agent..."
         )
 
+        deployment_agent = (
+            DeploymentAgent()
+        )
+
+        deployment_result = (
+            self.execute_agent(
+                deployment_agent,
+                "DeploymentAgent"
+            )
+        )
 
         # =================================================
         # 4. CODE AGENT
         # =================================================
 
-        print("\n[4/7] Running Code Agent...")
+        print(
+            "\n[4/7] Running Code Agent..."
+        )
 
         code_agent = CodeAgent()
 
@@ -170,57 +203,77 @@ class AegisOrchestrator:
             "CodeAgent"
         )
 
-
         # =================================================
         # 5. ROOT CAUSE AGENT
         # =================================================
 
-        print("\n[5/7] Running Root Cause Agent...")
-
-        root_cause_agent = RootCauseAgent()
-
-        root_cause_result = self.execute_agent(
-            root_cause_agent,
-            "RootCauseAgent"
+        print(
+            "\n[5/7] Running Root Cause Agent..."
         )
 
+        root_cause_agent = (
+            RootCauseAgent()
+        )
+
+        root_cause_result = (
+            self.execute_agent(
+                root_cause_agent,
+                "RootCauseAgent"
+            )
+        )
 
         # =================================================
         # 6. KNOWLEDGE AGENT
         # =================================================
 
-        print("\n[6/7] Running Knowledge Agent...")
-
-        knowledge_agent = KnowledgeAgent()
-
-        knowledge_result = self.execute_agent(
-            knowledge_agent,
-            "KnowledgeAgent"
+        print(
+            "\n[6/7] Running Knowledge Agent..."
         )
 
+        knowledge_agent = (
+            KnowledgeAgent()
+        )
+
+        knowledge_result = (
+            self.execute_agent(
+                knowledge_agent,
+                "KnowledgeAgent"
+            )
+        )
 
         # =================================================
         # 7. REMEDIATION AGENT
         # =================================================
 
-        print("\n[7/7] Running Remediation Agent...")
-
-        remediation_agent = RemediationAgent()
-
-        remediation_result = self.execute_agent(
-            remediation_agent,
-            "RemediationAgent"
+        print(
+            "\n[7/7] Running Remediation Agent..."
         )
 
+        remediation_agent = (
+            RemediationAgent()
+        )
+
+        # IMPORTANT:
+        # Pass previous agent results to remediation
+
+        remediation_result = (
+            remediation_agent.investigate(
+                metrics_result=metrics_result,
+                log_result=log_result,
+                deployment_result=deployment_result,
+                root_cause_result=root_cause_result
+            )
+        )
 
         # =================================================
         # INVESTIGATION SUMMARY
         # =================================================
 
         print("\n========================================")
-        print("       AEGISAI INVESTIGATION SUMMARY")
+        print(
+            "       AEGISAI INVESTIGATION SUMMARY"
+        )
         print("========================================\n")
-
 
         print(
             "Metrics Agent:",
@@ -230,7 +283,6 @@ class AegisOrchestrator:
             )
         )
 
-
         print(
             "Log Agent:",
             log_result.get(
@@ -238,7 +290,6 @@ class AegisOrchestrator:
                 "UNKNOWN"
             )
         )
-
 
         print(
             "Deployment Agent:",
@@ -248,7 +299,6 @@ class AegisOrchestrator:
             )
         )
 
-
         print(
             "Code Agent:",
             code_result.get(
@@ -256,7 +306,6 @@ class AegisOrchestrator:
                 "UNKNOWN"
             )
         )
-
 
         print(
             "Root Cause Agent:",
@@ -266,7 +315,6 @@ class AegisOrchestrator:
             )
         )
 
-
         print(
             "Knowledge Agent:",
             knowledge_result.get(
@@ -274,7 +322,6 @@ class AegisOrchestrator:
                 "UNKNOWN"
             )
         )
-
 
         print(
             "Remediation Agent:",
@@ -284,159 +331,193 @@ class AegisOrchestrator:
             )
         )
 
-
         # =================================================
         # FINAL INCIDENT RESULT
         # =================================================
 
         print("\n========================================")
-        print("       AEGISAI FINAL INCIDENT RESULT")
+        print(
+            "       AEGISAI FINAL INCIDENT RESULT"
+        )
         print("========================================\n")
 
-
-        # -------------------------------------------------
+        # =================================================
         # ROOT CAUSE
-        # -------------------------------------------------
+        # =================================================
 
         print("ROOT CAUSE")
 
-        if "confidence" in root_cause_result:
-
-            print(
-                "Confidence:",
-                root_cause_result["confidence"]
+        print(
+            "Confidence:",
+            root_cause_result.get(
+                "confidence",
+                "UNKNOWN"
             )
+        )
 
-
-        if "root_cause" in root_cause_result:
-
-            print(
-                "Assessment:",
-                root_cause_result["root_cause"]
+        print(
+            "Assessment:",
+            root_cause_result.get(
+                "root_cause",
+                root_cause_result.get(
+                    "message",
+                    "UNKNOWN"
+                )
             )
+        )
 
-
-        if "message" in root_cause_result:
-
-            print(
-                "Message:",
-                root_cause_result["message"]
-            )
-
-
-        # -------------------------------------------------
+        # =================================================
         # KNOWLEDGE
-        # -------------------------------------------------
+        # =================================================
 
         print("\nKNOWLEDGE")
 
-        if "match_count" in knowledge_result:
+        knowledge_matches = (
+            knowledge_result.get(
+                "matches",
+                []
+            )
+        )
 
-            print(
-                "Historical Matches:",
-                knowledge_result["match_count"]
+        print(
+            "Historical Matches:",
+            len(knowledge_matches)
+        )
+
+        for index, match in enumerate(
+            knowledge_matches,
+            start=1
+        ):
+
+            incident = match.get(
+                "incident",
+                {}
             )
 
+            print(
+                f"\nHistorical Match {index}:"
+            )
 
-        if "matches" in knowledge_result:
-
-            for index, match in enumerate(
-                knowledge_result["matches"],
-                start=1
-            ):
-
-                print(
-                    f"\nHistorical Match {index}:"
+            print(
+                "Incident:",
+                incident.get(
+                    "incident_id",
+                    "UNKNOWN"
                 )
+            )
 
-                if isinstance(match, dict):
+            print(
+                "Title:",
+                incident.get(
+                    "title",
+                    "UNKNOWN"
+                )
+            )
 
-                    print(
-                        "Incident:",
-                        match.get(
-                            "incident_id",
-                            "UNKNOWN"
-                        )
-                    )
+            print(
+                "Service:",
+                incident.get(
+                    "service",
+                    "UNKNOWN"
+                )
+            )
 
-                    print(
-                        "Title:",
-                        match.get(
-                            "title",
-                            "UNKNOWN"
-                        )
-                    )
+            print(
+                "Severity:",
+                incident.get(
+                    "severity",
+                    "UNKNOWN"
+                )
+            )
 
-                    print(
-                        "Root Cause:",
-                        match.get(
-                            "root_cause",
-                            "UNKNOWN"
-                        )
-                    )
+            print(
+                "Root Cause:",
+                incident.get(
+                    "root_cause",
+                    "UNKNOWN"
+                )
+            )
 
-                    print(
-                        "Resolution:",
-                        match.get(
-                            "resolution",
-                            "UNKNOWN"
-                        )
-                    )
+            print(
+                "Resolution:",
+                incident.get(
+                    "resolution",
+                    "UNKNOWN"
+                )
+            )
 
+            print(
+                "Affected Version:",
+                incident.get(
+                    "affected_version",
+                    "UNKNOWN"
+                )
+            )
 
-        # -------------------------------------------------
+        # =================================================
         # REMEDIATION
-        # -------------------------------------------------
+        # =================================================
 
         print("\nREMEDIATION")
 
-        if "action_count" in remediation_result:
+        remediation_actions = (
+            remediation_result.get(
+                "actions",
+                []
+            )
+        )
+
+        print(
+            "Recommended Actions:",
+            len(remediation_actions)
+        )
+
+        for index, action in enumerate(
+            remediation_actions,
+            start=1
+        ):
 
             print(
-                "Recommended Actions:",
-                remediation_result["action_count"]
+                f"{index}. "
+                f"[{action.get('priority', 'UNKNOWN')}] "
+                f"{action.get('action', 'UNKNOWN')}"
             )
-
-        elif "actions_generated" in remediation_result:
-
-            print(
-                "Recommended Actions:",
-                remediation_result["actions_generated"]
-            )
-
-        elif "actions" in remediation_result:
-
-            print(
-                "Recommended Actions:",
-                len(remediation_result["actions"])
-            )
-
 
         # =================================================
-        # RETURN COMPLETE INVESTIGATION
+        # COMPLETE RESULT
         # =================================================
 
-        return {
+        result = {
 
-            "orchestrator": self.name,
+            "orchestrator":
+                self.name,
 
-            "status": "COMPLETED",
+            "status":
+                "COMPLETED",
 
-            "metrics": metrics_result,
+            "metrics":
+                metrics_result,
 
-            "logs": log_result,
+            "logs":
+                log_result,
 
-            "deployments": deployment_result,
+            "deployments":
+                deployment_result,
 
-            "code": code_result,
+            "code":
+                code_result,
 
-            "root_cause": root_cause_result,
+            "root_cause":
+                root_cause_result,
 
-            "knowledge": knowledge_result,
+            "knowledge":
+                knowledge_result,
 
-            "remediation": remediation_result
-
+            "remediation":
+                remediation_result
         }
+
+        return result
 
 
 # =========================================================
@@ -449,9 +530,10 @@ if __name__ == "__main__":
 
     result = orchestrator.run()
 
-
     print("\n========================================")
-    print("      ORCHESTRATION COMPLETED")
+    print(
+        "      ORCHESTRATION COMPLETED"
+    )
     print("========================================\n")
 
     print(
