@@ -287,6 +287,7 @@ st.markdown(
 
 @st.cache_data
 def load_metrics():
+
     paths = [
         PROJECT_ROOT / "data" / "metric" / "metrics.csv",
         PROJECT_ROOT / "data" / "metrics" / "metrics.csv",
@@ -297,19 +298,24 @@ def load_metrics():
     if path is None:
         return pd.DataFrame()
 
-    df = pd.read_csv(path)
+    try:
+        df = pd.read_csv(path)
 
-    if "timestamp" in df.columns:
-        df["timestamp"] = pd.to_datetime(
-            df["timestamp"],
-            errors="coerce"
-        )
+        if "timestamp" in df.columns:
+            df["timestamp"] = pd.to_datetime(
+                df["timestamp"],
+                errors="coerce"
+            )
 
-    return df
+        return df
+
+    except Exception:
+        return pd.DataFrame()
 
 
 @st.cache_data
 def load_logs():
+
     paths = [
         PROJECT_ROOT / "data" / "log" / "log.csv",
         PROJECT_ROOT / "data" / "logs" / "logs.csv",
@@ -320,33 +326,47 @@ def load_logs():
     if path is None:
         return pd.DataFrame()
 
-    df = pd.read_csv(path)
+    try:
+        df = pd.read_csv(path)
 
-    if "timestamp" in df.columns:
-        df["timestamp"] = pd.to_datetime(
-            df["timestamp"],
-            errors="coerce"
-        )
+        if "timestamp" in df.columns:
+            df["timestamp"] = pd.to_datetime(
+                df["timestamp"],
+                errors="coerce"
+            )
 
-    return df
+        return df
+
+    except Exception:
+        return pd.DataFrame()
 
 
 @st.cache_data
 def load_deployments():
-    path = PROJECT_ROOT / "data" / "deployments" / "deployments.csv"
+
+    path = (
+        PROJECT_ROOT
+        / "data"
+        / "deployments"
+        / "deployments.csv"
+    )
 
     if not path.exists():
         return pd.DataFrame()
 
-    df = pd.read_csv(path)
+    try:
+        df = pd.read_csv(path)
 
-    if "timestamp" in df.columns:
-        df["timestamp"] = pd.to_datetime(
-            df["timestamp"],
-            errors="coerce"
-        )
+        if "timestamp" in df.columns:
+            df["timestamp"] = pd.to_datetime(
+                df["timestamp"],
+                errors="coerce"
+            )
 
-    return df
+        return df
+
+    except Exception:
+        return pd.DataFrame()
 
 
 # ============================================================
@@ -379,7 +399,7 @@ def detect_anomalies(metrics):
         if column in metrics.columns
     ]
 
-    if len(available) < 2 or len(metrics) < 5:
+    if len(available) < 2:
         return pd.DataFrame()
 
     working = metrics.copy()
@@ -390,30 +410,44 @@ def detect_anomalies(metrics):
             errors="coerce"
         )
 
-    working = working.dropna(subset=available)
+    working = working.dropna(
+        subset=available
+    )
 
     if len(working) < 5:
         return pd.DataFrame()
 
-    model = IsolationForest(
-        contamination=0.30,
-        random_state=42
-    )
+    try:
 
-    working["anomaly_prediction"] = model.fit_predict(
-        working[available]
-    )
+        model = IsolationForest(
+            contamination=0.30,
+            random_state=42,
+            n_estimators=200
+        )
 
-    working["anomaly_score"] = model.decision_function(
-        working[available]
-    )
+        working["anomaly_prediction"] = (
+            model.fit_predict(
+                working[available]
+            )
+        )
+
+        working["anomaly_score"] = (
+            model.decision_function(
+                working[available]
+            )
+        )
+
+    except Exception:
+        return pd.DataFrame()
 
     anomalies = working[
         working["anomaly_prediction"] == -1
     ].copy()
 
     if "timestamp" in anomalies.columns:
-        anomalies = anomalies.sort_values("timestamp")
+        anomalies = anomalies.sort_values(
+            "timestamp"
+        )
 
     return anomalies
 
@@ -422,7 +456,11 @@ def detect_anomalies(metrics):
 # LOG CORRELATION
 # ============================================================
 
-def correlate_logs(logs, first_anomaly):
+def correlate_logs(
+    logs,
+    first_anomaly,
+    service=None
+):
 
     if logs.empty or first_anomaly is None:
         return pd.DataFrame()
@@ -430,45 +468,91 @@ def correlate_logs(logs, first_anomaly):
     if "timestamp" not in logs.columns:
         return pd.DataFrame()
 
-    logs = logs.copy()
+    working = logs.copy()
 
-    start = first_anomaly - pd.Timedelta(minutes=3)
-    end = first_anomaly + pd.Timedelta(minutes=3)
+    start = (
+        first_anomaly
+        - pd.Timedelta(minutes=3)
+    )
 
-    relevant = logs[
-        (logs["timestamp"] >= start)
-        & (logs["timestamp"] <= end)
+    end = (
+        first_anomaly
+        + pd.Timedelta(minutes=3)
+    )
+
+    relevant = working[
+        (working["timestamp"] >= start)
+        & (working["timestamp"] <= end)
     ].copy()
 
-    return relevant.sort_values("timestamp")
+    if (
+        service is not None
+        and "service" in relevant.columns
+    ):
+        service_logs = relevant[
+            relevant["service"].astype(str)
+            == str(service)
+        ]
+
+        if not service_logs.empty:
+            relevant = service_logs
+
+    return relevant.sort_values(
+        "timestamp"
+    )
 
 
 # ============================================================
 # DEPLOYMENT CORRELATION
 # ============================================================
 
-def correlate_deployments(deployments, first_anomaly):
+def correlate_deployments(
+    deployments,
+    first_anomaly,
+    service=None
+):
 
-    if deployments.empty or first_anomaly is None:
+    if (
+        deployments.empty
+        or first_anomaly is None
+    ):
         return pd.DataFrame()
 
     if "timestamp" not in deployments.columns:
         return pd.DataFrame()
 
-    deployments = deployments.copy()
+    working = deployments.copy()
 
-    window_start = first_anomaly - pd.Timedelta(hours=2)
+    window_start = (
+        first_anomaly
+        - pd.Timedelta(hours=2)
+    )
 
-    relevant = deployments[
-        (deployments["timestamp"] <= first_anomaly)
-        & (deployments["timestamp"] >= window_start)
+    relevant = working[
+        (working["timestamp"] <= first_anomaly)
+        & (working["timestamp"] >= window_start)
     ].copy()
 
-    return relevant.sort_values("timestamp")
+    if (
+        service is not None
+        and "service" in relevant.columns
+    ):
+
+        service_deployments = relevant[
+            relevant["service"].astype(str)
+            == str(service)
+        ]
+
+        if not service_deployments.empty:
+            relevant = service_deployments
+
+    return relevant.sort_values(
+        "timestamp"
+    )
 
 
 # ============================================================
-# ROOT CAUSE
+# ROOT CAUSE ANALYSIS
 # ============================================================
 
 def generate_root_cause(
@@ -478,10 +562,13 @@ def generate_root_cause(
 ):
 
     if anomalies.empty:
+
         return {
             "service": "N/A",
             "first_anomaly": None,
-            "root_cause": "No production anomaly detected.",
+            "root_cause": (
+                "No production anomaly detected."
+            ),
             "confidence": "LOW",
         }
 
@@ -492,23 +579,33 @@ def generate_root_cause(
         "unknown"
     )
 
-    first_anomaly = first["timestamp"]
+    first_anomaly = first.get(
+        "timestamp",
+        None
+    )
 
     root_cause = (
         "Production degradation was detected."
     )
 
+    evidence = []
+
     confidence = "MEDIUM"
+
+    # --------------------------------------------------------
+    # Deployment evidence
+    # --------------------------------------------------------
 
     if not relevant_deployments.empty:
 
-        latest = relevant_deployments.iloc[-1]
+        latest = (
+            relevant_deployments.iloc[-1]
+        )
 
-        deployment_time = latest["timestamp"]
-
-        minutes_before = (
-            first_anomaly - deployment_time
-        ).total_seconds() / 60
+        deployment_time = latest.get(
+            "timestamp",
+            None
+        )
 
         version = latest.get(
             "version",
@@ -520,55 +617,80 @@ def generate_root_cause(
             "unknown"
         )
 
-        root_cause = (
-            f"Production degradation is strongly correlated "
-            f"with deployment {version} ({commit}). "
-            f"The deployment occurred "
-            f"{minutes_before:.2f} minutes before the "
-            f"first anomaly."
-        )
+        if (
+            deployment_time is not None
+            and first_anomaly is not None
+        ):
 
-        confidence = "HIGH"
+            minutes_before = (
+                first_anomaly
+                - deployment_time
+            ).total_seconds() / 60
+
+            if minutes_before >= 0:
+
+                evidence.append(
+                    f"deployment {version} "
+                    f"({commit}) occurred "
+                    f"{minutes_before:.2f} minutes "
+                    f"before the first anomaly"
+                )
+
+    # --------------------------------------------------------
+    # Database log evidence
+    # --------------------------------------------------------
+
+    database_related = False
 
     if not relevant_logs.empty:
 
-        database_related = False
-
         for _, row in relevant_logs.iterrows():
 
-            level = str(
-                row.get("level", "")
-            ).upper()
-
             message = str(
-                row.get("message", "")
+                row.get(
+                    "message",
+                    ""
+                )
             ).lower()
 
+            level = str(
+                row.get(
+                    "level",
+                    ""
+                )
+            ).upper()
+
             if (
-                level in [
-                    "ERROR",
-                    "CRITICAL",
-                    "WARN",
-                    "WARNING"
-                ]
-                or "database" in message
+                "database" in message
+                or "connection" in message
                 or "timeout" in message
             ):
-                if (
-                    "database" in message
-                    or "connection" in message
-                    or "timeout" in message
-                ):
-                    database_related = True
 
-        if database_related:
+                database_related = True
 
-            root_cause += (
-                " Application logs show database "
-                "connection-pool and timeout failures."
-            )
+                break
 
-            confidence = "HIGH"
+    if database_related:
+
+        evidence.append(
+            "application logs contain "
+            "database connection or timeout failures"
+        )
+
+    # --------------------------------------------------------
+    # Final RCA
+    # --------------------------------------------------------
+
+    if evidence:
+
+        root_cause = (
+            "The incident is temporally associated with "
+            + "; ".join(evidence)
+            + ". These signals provide correlation evidence "
+              "but do not by themselves prove causation."
+        )
+
+        confidence = "HIGH"
 
     return {
         "service": service,
@@ -591,7 +713,9 @@ def generate_remediation(
 
     if not relevant_deployments.empty:
 
-        latest = relevant_deployments.iloc[-1]
+        latest = (
+            relevant_deployments.iloc[-1]
+        )
 
         version = latest.get(
             "version",
@@ -599,22 +723,35 @@ def generate_remediation(
         )
 
         recommendations.append(
-            f"Review deployment {version} and compare "
-            "database-query behavior before and after release."
+            f"Review deployment {version} "
+            "and compare database-query behavior "
+            "before and after the release."
         )
 
     recommendations.extend(
         [
-            "Inspect database connection-pool configuration "
-            "and current pool utilization.",
-            "Review slow authentication queries and database "
-            "execution plans introduced by the recent change.",
-            "Temporarily reduce database pressure and monitor "
-            "authentication latency and timeout rate.",
-            "Validate the remediation in a staging environment "
-            "before production rollout.",
-            "Add an alert for connection-pool saturation and "
-            "authentication timeout spikes.",
+            (
+                "Inspect database connection-pool "
+                "configuration and current pool utilization."
+            ),
+            (
+                "Review slow authentication queries "
+                "and database execution plans associated "
+                "with the recent change."
+            ),
+            (
+                "Reduce database pressure temporarily "
+                "and monitor authentication latency "
+                "and timeout rate."
+            ),
+            (
+                "Validate the remediation in a staging "
+                "environment before production rollout."
+            ),
+            (
+                "Add alerts for connection-pool saturation "
+                "and authentication timeout spikes."
+            ),
         ]
     )
 
@@ -622,28 +759,60 @@ def generate_remediation(
 
 
 # ============================================================
-# LOAD DATA
+# LOAD ALL DATA
 # ============================================================
 
 metrics = load_metrics()
 logs = load_logs()
 deployments = load_deployments()
 
-anomalies = detect_anomalies(metrics)
+anomalies = detect_anomalies(
+    metrics
+)
 
 first_anomaly = None
 
 if not anomalies.empty:
-    first_anomaly = anomalies.iloc[0]["timestamp"]
+
+    first_anomaly = (
+        anomalies.iloc[0]["timestamp"]
+    )
+
+affected_service = "N/A"
+
+if (
+    not anomalies.empty
+    and "service" in anomalies.columns
+):
+
+    services = (
+        anomalies["service"]
+        .dropna()
+        .unique()
+    )
+
+    if len(services) > 0:
+        affected_service = str(
+            services[0]
+        )
+
 
 relevant_logs = correlate_logs(
     logs,
-    first_anomaly
+    first_anomaly,
+    affected_service
+    if affected_service != "N/A"
+    else None
 )
 
-relevant_deployments = correlate_deployments(
-    deployments,
-    first_anomaly
+relevant_deployments = (
+    correlate_deployments(
+        deployments,
+        first_anomaly,
+        affected_service
+        if affected_service != "N/A"
+        else None
+    )
 )
 
 analysis = generate_root_cause(
@@ -667,17 +836,30 @@ with st.sidebar:
     st.markdown(
         """
         <div class="sidebar-brand">
-            <div class="sidebar-title">🛡️ AegisAI</div>
+
+            <div class="sidebar-title">
+                🛡️ AegisAI
+            </div>
+
             <div class="sidebar-subtitle">
                 Production incident investigation
                 and root-cause intelligence.
             </div>
+
         </div>
         """,
         unsafe_allow_html=True
     )
 
     st.divider()
+
+    if st.button(
+        "🔄 Refresh Investigation",
+        use_container_width=True
+    ):
+
+        st.cache_data.clear()
+        st.rerun()
 
     st.markdown(
         '<div class="sidebar-section">System Status</div>',
@@ -737,11 +919,11 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-    st.caption("ML Anomaly Detection")
-    st.caption("Log Correlation")
-    st.caption("Deployment Correlation")
-    st.caption("Root Cause Analysis")
-    st.caption("Remediation Intelligence")
+    st.caption("✓ ML Anomaly Detection")
+    st.caption("✓ Log Correlation")
+    st.caption("✓ Deployment Correlation")
+    st.caption("✓ Root Cause Analysis")
+    st.caption("✓ Remediation Intelligence")
 
 
 # ============================================================
@@ -751,10 +933,16 @@ with st.sidebar:
 st.markdown(
     """
     <div class="hero">
-        <div class="hero-title">🛡️ AegisAI</div>
-        <div class="hero-subtitle">
-            Autonomous AI-Powered Production Incident Intelligence Platform
+
+        <div class="hero-title">
+            🛡️ AegisAI
         </div>
+
+        <div class="hero-subtitle">
+            Autonomous AI-Powered Production
+            Incident Intelligence Platform
+        </div>
+
     </div>
     """,
     unsafe_allow_html=True
@@ -770,19 +958,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-affected_service = "N/A"
-
-if not anomalies.empty and "service" in anomalies.columns:
-
-    services = (
-        anomalies["service"]
-        .dropna()
-        .unique()
-    )
-
-    if len(services) > 0:
-        affected_service = str(services[0])
-
 
 c1, c2, c3, c4, c5 = st.columns(5)
 
@@ -797,7 +972,11 @@ def metric_card(
 
     with container:
 
-        size = "21px" if small else "28px"
+        size = (
+            "21px"
+            if small
+            else "28px"
+        )
 
         st.markdown(
             f"""
@@ -870,10 +1049,13 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+
 if not anomalies.empty:
 
     first_time_text = (
-        first_anomaly.strftime("%Y-%m-%d %H:%M:%S")
+        first_anomaly.strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
         if first_anomaly is not None
         else "Unknown"
     )
@@ -891,15 +1073,18 @@ if not anomalies.empty:
             </div>
 
             <div class="incident-detail">
-                <b>Service:</b> {affected_service}
+                <b>Service:</b>
+                {affected_service}
             </div>
 
             <div class="incident-detail">
-                <b>First anomaly:</b> {first_time_text}
+                <b>First anomaly:</b>
+                {first_time_text}
             </div>
 
             <div class="incident-detail">
-                <b>Anomalies detected:</b> {len(anomalies)}
+                <b>Anomalies detected:</b>
+                {len(anomalies)}
             </div>
 
         </div>
@@ -950,6 +1135,7 @@ if not anomalies.empty:
         "error_rate",
         "db_cpu_percent",
         "db_latency_ms",
+        "anomaly_score",
     ]
 
     available_columns = [
@@ -966,7 +1152,9 @@ if not anomalies.empty:
 
         anomaly_table["timestamp"] = (
             anomaly_table["timestamp"]
-            .dt.strftime("%Y-%m-%d %H:%M:%S")
+            .dt.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         )
 
     rename_map = {
@@ -976,15 +1164,13 @@ if not anomalies.empty:
         "error_rate": "Error Rate (%)",
         "db_cpu_percent": "DB CPU (%)",
         "db_latency_ms": "DB Latency (ms)",
+        "anomaly_score": "Anomaly Score",
     }
 
     anomaly_table = anomaly_table.rename(
         columns=rename_map
     )
 
-    # IMPORTANT:
-    # use_container_width=True is compatible
-    # with older Streamlit versions.
     st.dataframe(
         anomaly_table,
         use_container_width=True,
@@ -1007,6 +1193,10 @@ if not metrics.empty:
 
     chart_left, chart_right = st.columns(2)
 
+    # --------------------------------------------------------
+    # LATENCY
+    # --------------------------------------------------------
+
     with chart_left:
 
         if {
@@ -1022,7 +1212,8 @@ if not metrics.empty:
                 title="Average Latency",
                 labels={
                     "timestamp": "Time",
-                    "avg_latency_ms": "Latency (ms)",
+                    "avg_latency_ms":
+                        "Latency (ms)",
                 }
             )
 
@@ -1043,6 +1234,10 @@ if not metrics.empty:
                 fig,
                 use_container_width=True
             )
+
+    # --------------------------------------------------------
+    # ERROR RATE
+    # --------------------------------------------------------
 
     with chart_right:
 
@@ -1059,7 +1254,8 @@ if not metrics.empty:
                 title="Error Rate",
                 labels={
                     "timestamp": "Time",
-                    "error_rate": "Error Rate (%)",
+                    "error_rate":
+                        "Error Rate (%)",
                 }
             )
 
@@ -1080,6 +1276,10 @@ if not metrics.empty:
                 fig,
                 use_container_width=True
             )
+
+    # --------------------------------------------------------
+    # DATABASE CPU
+    # --------------------------------------------------------
 
     chart_left, chart_right = st.columns(2)
 
@@ -1098,7 +1298,8 @@ if not metrics.empty:
                 title="Database CPU",
                 labels={
                     "timestamp": "Time",
-                    "db_cpu_percent": "DB CPU (%)",
+                    "db_cpu_percent":
+                        "DB CPU (%)",
                 }
             )
 
@@ -1120,6 +1321,10 @@ if not metrics.empty:
                 use_container_width=True
             )
 
+    # --------------------------------------------------------
+    # DATABASE LATENCY
+    # --------------------------------------------------------
+
     with chart_right:
 
         if {
@@ -1135,7 +1340,8 @@ if not metrics.empty:
                 title="Database Latency",
                 labels={
                     "timestamp": "Time",
-                    "db_latency_ms": "DB Latency (ms)",
+                    "db_latency_ms":
+                        "DB Latency (ms)",
                 }
             )
 
@@ -1198,9 +1404,12 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+
 if not relevant_deployments.empty:
 
-    for _, deployment in relevant_deployments.iterrows():
+    for _, deployment in (
+        relevant_deployments.iterrows()
+    ):
 
         deployment_time = deployment.get(
             "timestamp",
@@ -1211,8 +1420,11 @@ if not relevant_deployments.empty:
             deployment_time,
             "strftime"
         ):
-            deployment_time = deployment_time.strftime(
-                "%Y-%m-%d %H:%M:%S"
+
+            deployment_time = (
+                deployment_time.strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
             )
 
         version = deployment.get(
@@ -1247,11 +1459,13 @@ if not relevant_deployments.empty:
                 ).total_seconds() / 60
 
                 minutes_before = (
-                    f"{diff:.2f} minutes before first anomaly"
+                    f"{diff:.2f} minutes "
+                    "before first anomaly"
                 )
 
             except Exception:
-                pass
+
+                minutes_before = ""
 
         st.markdown(
             f"""
@@ -1263,15 +1477,20 @@ if not relevant_deployments.empty:
 
                 <div class="evidence-text">
 
-                    <b>Time:</b> {deployment_time}<br>
+                    <b>Time:</b>
+                    {deployment_time}<br>
 
-                    <b>Commit:</b> {commit}<br>
+                    <b>Commit:</b>
+                    {commit}<br>
 
-                    <b>Developer:</b> {developer}<br>
+                    <b>Developer:</b>
+                    {developer}<br>
 
-                    <b>Change:</b> {change}<br>
+                    <b>Change:</b>
+                    {change}<br>
 
-                    <b>Correlation:</b> {minutes_before}
+                    <b>Correlation:</b>
+                    {minutes_before}
 
                 </div>
 
@@ -1296,6 +1515,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+
 if not relevant_logs.empty:
 
     log_display = relevant_logs.copy()
@@ -1304,7 +1524,9 @@ if not relevant_logs.empty:
 
         log_display["timestamp"] = (
             log_display["timestamp"]
-            .dt.strftime("%Y-%m-%d %H:%M:%S")
+            .dt.strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
         )
 
     preferred_columns = [
@@ -1346,6 +1568,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+
 for index, recommendation in enumerate(
     remediation,
     start=1
@@ -1370,7 +1593,7 @@ for index, recommendation in enumerate(
 
 
 # ============================================================
-# INCIDENT SUMMARY
+# INVESTIGATION SUMMARY
 # ============================================================
 
 st.markdown(
@@ -1378,7 +1601,9 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+
 summary_left, summary_right = st.columns(2)
+
 
 with summary_left:
 
@@ -1454,10 +1679,16 @@ with summary_right:
 st.markdown(
     """
     <div class="footer">
-        AegisAI — Multi-Agent Production Incident Intelligence
+
+        AegisAI — Multi-Agent Production
+        Incident Intelligence
+
         <br>
-        ML Detection • Log Correlation • Deployment Analysis
-        • Root Cause Intelligence • Remediation
+
+        ML Detection • Log Correlation •
+        Deployment Analysis • Root Cause Intelligence •
+        Remediation
+
     </div>
     """,
     unsafe_allow_html=True
