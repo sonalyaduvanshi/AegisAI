@@ -1,6 +1,5 @@
 from pathlib import Path
 import sys
-import textwrap
 
 import pandas as pd
 import streamlit as st
@@ -30,21 +29,10 @@ st.set_page_config(
 
 
 # ============================================================
-# HTML RENDER HELPER
-# ============================================================
-
-def render_html(content):
-    st.markdown(
-        textwrap.dedent(content),
-        unsafe_allow_html=True
-    )
-
-
-# ============================================================
 # CUSTOM CSS
 # ============================================================
 
-render_html(
+st.markdown(
     """
     <style>
 
@@ -288,7 +276,8 @@ render_html(
     }
 
     </style>
-    """
+    """,
+    unsafe_allow_html=True,
 )
 
 
@@ -298,45 +287,52 @@ render_html(
 
 @st.cache_data
 def load_metrics():
+    paths = [
+        PROJECT_ROOT / "data" / "metric" / "metrics.csv",
+        PROJECT_ROOT / "data" / "metrics" / "metrics.csv",
+    ]
 
-    path = PROJECT_ROOT / "data" / "metric" / "metrics.csv"
+    path = next((p for p in paths if p.exists()), None)
 
-    if not path.exists():
-        path = PROJECT_ROOT / "data" / "metrics" / "metrics.csv"
-
-    if not path.exists():
+    if path is None:
         return pd.DataFrame()
 
     df = pd.read_csv(path)
 
     if "timestamp" in df.columns:
-        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        df["timestamp"] = pd.to_datetime(
+            df["timestamp"],
+            errors="coerce"
+        )
 
     return df
 
 
 @st.cache_data
 def load_logs():
+    paths = [
+        PROJECT_ROOT / "data" / "log" / "log.csv",
+        PROJECT_ROOT / "data" / "logs" / "logs.csv",
+    ]
 
-    path = PROJECT_ROOT / "data" / "log" / "log.csv"
+    path = next((p for p in paths if p.exists()), None)
 
-    if not path.exists():
-        path = PROJECT_ROOT / "data" / "logs" / "logs.csv"
-
-    if not path.exists():
+    if path is None:
         return pd.DataFrame()
 
     df = pd.read_csv(path)
 
     if "timestamp" in df.columns:
-        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        df["timestamp"] = pd.to_datetime(
+            df["timestamp"],
+            errors="coerce"
+        )
 
     return df
 
 
 @st.cache_data
 def load_deployments():
-
     path = PROJECT_ROOT / "data" / "deployments" / "deployments.csv"
 
     if not path.exists():
@@ -345,7 +341,10 @@ def load_deployments():
     df = pd.read_csv(path)
 
     if "timestamp" in df.columns:
-        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        df["timestamp"] = pd.to_datetime(
+            df["timestamp"],
+            errors="coerce"
+        )
 
     return df
 
@@ -401,28 +400,26 @@ def detect_anomalies(metrics):
         random_state=42
     )
 
-    predictions = model.fit_predict(
+    working["anomaly_prediction"] = model.fit_predict(
         working[available]
     )
 
-    scores = model.decision_function(
+    working["anomaly_score"] = model.decision_function(
         working[available]
     )
-
-    working["anomaly_prediction"] = predictions
-    working["anomaly_score"] = scores
 
     anomalies = working[
         working["anomaly_prediction"] == -1
     ].copy()
 
-    anomalies = anomalies.sort_values("timestamp")
+    if "timestamp" in anomalies.columns:
+        anomalies = anomalies.sort_values("timestamp")
 
     return anomalies
 
 
 # ============================================================
-# CORRELATION
+# LOG CORRELATION
 # ============================================================
 
 def correlate_logs(logs, first_anomaly):
@@ -430,10 +427,10 @@ def correlate_logs(logs, first_anomaly):
     if logs.empty or first_anomaly is None:
         return pd.DataFrame()
 
-    logs = logs.copy()
-
     if "timestamp" not in logs.columns:
         return pd.DataFrame()
+
+    logs = logs.copy()
 
     start = first_anomaly - pd.Timedelta(minutes=3)
     end = first_anomaly + pd.Timedelta(minutes=3)
@@ -446,15 +443,19 @@ def correlate_logs(logs, first_anomaly):
     return relevant.sort_values("timestamp")
 
 
+# ============================================================
+# DEPLOYMENT CORRELATION
+# ============================================================
+
 def correlate_deployments(deployments, first_anomaly):
 
     if deployments.empty or first_anomaly is None:
         return pd.DataFrame()
 
-    deployments = deployments.copy()
-
     if "timestamp" not in deployments.columns:
         return pd.DataFrame()
+
+    deployments = deployments.copy()
 
     window_start = first_anomaly - pd.Timedelta(hours=2)
 
@@ -477,7 +478,6 @@ def generate_root_cause(
 ):
 
     if anomalies.empty:
-
         return {
             "service": "N/A",
             "first_anomaly": None,
@@ -494,8 +494,8 @@ def generate_root_cause(
 
     first_anomaly = first["timestamp"]
 
-    deployment_text = (
-        "No recent deployment was correlated."
+    root_cause = (
+        "Production degradation was detected."
     )
 
     confidence = "MEDIUM"
@@ -520,7 +520,7 @@ def generate_root_cause(
             "unknown"
         )
 
-        deployment_text = (
+        root_cause = (
             f"Production degradation is strongly correlated "
             f"with deployment {version} ({commit}). "
             f"The deployment occurred "
@@ -532,7 +532,7 @@ def generate_root_cause(
 
     if not relevant_logs.empty:
 
-        log_messages = []
+        database_related = False
 
         for _, row in relevant_logs.iterrows():
 
@@ -554,32 +554,26 @@ def generate_root_cause(
                 or "database" in message
                 or "timeout" in message
             ):
-                log_messages.append(message)
-
-        if log_messages:
-
-            database_related = any(
-                (
+                if (
                     "database" in message
                     or "connection" in message
                     or "timeout" in message
-                )
-                for message in log_messages
+                ):
+                    database_related = True
+
+        if database_related:
+
+            root_cause += (
+                " Application logs show database "
+                "connection-pool and timeout failures."
             )
 
-            if database_related:
-
-                deployment_text += (
-                    " Application logs show database "
-                    "connection-pool and timeout failures."
-                )
-
-                confidence = "HIGH"
+            confidence = "HIGH"
 
     return {
         "service": service,
         "first_anomaly": first_anomaly,
-        "root_cause": deployment_text,
+        "root_cause": root_cause,
         "confidence": confidence,
     }
 
@@ -589,7 +583,7 @@ def generate_root_cause(
 # ============================================================
 
 def generate_remediation(
-    root_cause,
+    analysis,
     relevant_deployments
 ):
 
@@ -613,16 +607,12 @@ def generate_remediation(
         [
             "Inspect database connection-pool configuration "
             "and current pool utilization.",
-
             "Review slow authentication queries and database "
             "execution plans introduced by the recent change.",
-
             "Temporarily reduce database pressure and monitor "
             "authentication latency and timeout rate.",
-
             "Validate the remediation in a staging environment "
             "before production rollout.",
-
             "Add an alert for connection-pool saturation and "
             "authentication timeout spikes.",
         ]
@@ -674,58 +664,54 @@ remediation = generate_remediation(
 
 with st.sidebar:
 
-    render_html(
+    st.markdown(
         """
         <div class="sidebar-brand">
             <div class="sidebar-title">🛡️ AegisAI</div>
-
             <div class="sidebar-subtitle">
                 Production incident investigation
                 and root-cause intelligence.
             </div>
         </div>
-        """
+        """,
+        unsafe_allow_html=True
     )
 
     st.divider()
 
-    render_html(
-        """
-        <div class="sidebar-section">
-            System Status
-        </div>
-        """
+    st.markdown(
+        '<div class="sidebar-section">System Status</div>',
+        unsafe_allow_html=True
     )
 
     if not anomalies.empty:
 
-        render_html(
+        st.markdown(
             """
             <div class="status-badge status-danger">
                 ● INCIDENT DETECTED
             </div>
-            """
+            """,
+            unsafe_allow_html=True
         )
 
     else:
 
-        render_html(
+        st.markdown(
             """
             <div class="status-badge status-success">
                 ● SYSTEM HEALTHY
             </div>
-            """
+            """,
+            unsafe_allow_html=True
         )
 
-    render_html(
-        """
-        <div class="sidebar-section">
-            Platform Metrics
-        </div>
-        """
+    st.markdown(
+        '<div class="sidebar-section">Platform Metrics</div>',
+        unsafe_allow_html=True
     )
 
-    render_html(
+    st.markdown(
         f"""
         <div class="sidebar-stat">
             Metrics&nbsp;&nbsp;: <b>{len(metrics)}</b>
@@ -742,15 +728,13 @@ with st.sidebar:
         <div class="sidebar-stat">
             Anomalies&nbsp;&nbsp;: <b>{len(anomalies)}</b>
         </div>
-        """
+        """,
+        unsafe_allow_html=True
     )
 
-    render_html(
-        """
-        <div class="sidebar-section">
-            Engine
-        </div>
-        """
+    st.markdown(
+        '<div class="sidebar-section">Engine</div>',
+        unsafe_allow_html=True
     )
 
     st.caption("ML Anomaly Detection")
@@ -764,21 +748,16 @@ with st.sidebar:
 # HERO
 # ============================================================
 
-render_html(
+st.markdown(
     """
     <div class="hero">
-
-        <div class="hero-title">
-            🛡️ AegisAI
-        </div>
-
+        <div class="hero-title">🛡️ AegisAI</div>
         <div class="hero-subtitle">
-            Autonomous AI-Powered Production Incident
-            Intelligence Platform
+            Autonomous AI-Powered Production Incident Intelligence Platform
         </div>
-
     </div>
-    """
+    """,
+    unsafe_allow_html=True
 )
 
 
@@ -786,19 +765,20 @@ render_html(
 # PRODUCTION OVERVIEW
 # ============================================================
 
-render_html(
-    """
-    <div class="section-title">
-        📊 Production Overview
-    </div>
-    """
+st.markdown(
+    '<div class="section-title">📊 Production Overview</div>',
+    unsafe_allow_html=True
 )
 
 affected_service = "N/A"
 
 if not anomalies.empty and "service" in anomalies.columns:
 
-    services = anomalies["service"].dropna().unique()
+    services = (
+        anomalies["service"]
+        .dropna()
+        .unique()
+    )
 
     if len(services) > 0:
         affected_service = str(services[0])
@@ -807,147 +787,98 @@ if not anomalies.empty and "service" in anomalies.columns:
 c1, c2, c3, c4, c5 = st.columns(5)
 
 
-with c1:
+def metric_card(
+    container,
+    label,
+    value,
+    description,
+    small=False
+):
 
-    render_html(
-        f"""
-        <div class="metric-card">
+    with container:
 
-            <div class="metric-label">
-                Total Metrics
+        size = "21px" if small else "28px"
+
+        st.markdown(
+            f"""
+            <div class="metric-card">
+
+                <div class="metric-label">
+                    {label}
+                </div>
+
+                <div
+                    class="metric-value"
+                    style="font-size:{size};"
+                >
+                    {value}
+                </div>
+
+                <div class="metric-description">
+                    {description}
+                </div>
+
             </div>
-
-            <div class="metric-value">
-                {len(metrics)}
-            </div>
-
-            <div class="metric-description">
-                Production observations
-            </div>
-
-        </div>
-        """
-    )
+            """,
+            unsafe_allow_html=True
+        )
 
 
-with c2:
+metric_card(
+    c1,
+    "Total Metrics",
+    len(metrics),
+    "Production observations"
+)
 
-    render_html(
-        f"""
-        <div class="metric-card">
+metric_card(
+    c2,
+    "Anomalies",
+    len(anomalies),
+    "ML detected anomalies"
+)
 
-            <div class="metric-label">
-                Anomalies
-            </div>
+metric_card(
+    c3,
+    "Log Events",
+    len(logs),
+    "Application events"
+)
 
-            <div class="metric-value">
-                {len(anomalies)}
-            </div>
+metric_card(
+    c4,
+    "Deployments",
+    len(deployments),
+    "Recent releases"
+)
 
-            <div class="metric-description">
-                ML detected anomalies
-            </div>
-
-        </div>
-        """
-    )
-
-
-with c3:
-
-    render_html(
-        f"""
-        <div class="metric-card">
-
-            <div class="metric-label">
-                Log Events
-            </div>
-
-            <div class="metric-value">
-                {len(logs)}
-            </div>
-
-            <div class="metric-description">
-                Application events
-            </div>
-
-        </div>
-        """
-    )
-
-
-with c4:
-
-    render_html(
-        f"""
-        <div class="metric-card">
-
-            <div class="metric-label">
-                Deployments
-            </div>
-
-            <div class="metric-value">
-                {len(deployments)}
-            </div>
-
-            <div class="metric-description">
-                Recent releases
-            </div>
-
-        </div>
-        """
-    )
-
-
-with c5:
-
-    render_html(
-        f"""
-        <div class="metric-card">
-
-            <div class="metric-label">
-                Affected Service
-            </div>
-
-            <div
-                class="metric-value"
-                style="font-size:21px;"
-            >
-                {affected_service}
-            </div>
-
-            <div class="metric-description">
-                Impacted production service
-            </div>
-
-        </div>
-        """
-    )
+metric_card(
+    c5,
+    "Affected Service",
+    affected_service,
+    "Impacted production service",
+    small=True
+)
 
 
 # ============================================================
 # INCIDENT STATUS
 # ============================================================
 
-render_html(
-    """
-    <div class="section-title">
-        🚨 Incident Status
-    </div>
-    """
+st.markdown(
+    '<div class="section-title">🚨 Incident Status</div>',
+    unsafe_allow_html=True
 )
 
 if not anomalies.empty:
 
     first_time_text = (
-        first_anomaly.strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        first_anomaly.strftime("%Y-%m-%d %H:%M:%S")
         if first_anomaly is not None
         else "Unknown"
     )
 
-    render_html(
+    st.markdown(
         f"""
         <div class="incident-card incident">
 
@@ -972,12 +903,13 @@ if not anomalies.empty:
             </div>
 
         </div>
-        """
+        """,
+        unsafe_allow_html=True
     )
 
 else:
 
-    render_html(
+    st.markdown(
         """
         <div class="incident-card healthy">
 
@@ -995,7 +927,8 @@ else:
             </div>
 
         </div>
-        """
+        """,
+        unsafe_allow_html=True
     )
 
 
@@ -1005,12 +938,9 @@ else:
 
 if not anomalies.empty:
 
-    render_html(
-        """
-        <div class="section-title">
-            🔎 Detected Anomalies
-        </div>
-        """
+    st.markdown(
+        '<div class="section-title">🔎 Detected Anomalies</div>',
+        unsafe_allow_html=True
     )
 
     display_columns = [
@@ -1052,9 +982,12 @@ if not anomalies.empty:
         columns=rename_map
     )
 
+    # IMPORTANT:
+    # use_container_width=True is compatible
+    # with older Streamlit versions.
     st.dataframe(
         anomaly_table,
-        width="stretch",
+        use_container_width=True,
         hide_index=True
     )
 
@@ -1065,22 +998,14 @@ if not anomalies.empty:
 
 if not metrics.empty:
 
-    render_html(
-        """
-        <div class="section-title">
-            📈 Production Metrics
-        </div>
-        """
+    st.markdown(
+        '<div class="section-title">📈 Production Metrics</div>',
+        unsafe_allow_html=True
     )
-
-    chart_left, chart_right = st.columns(2)
 
     chart_data = metrics.copy()
 
-
-    # --------------------------------------------------------
-    # LATENCY
-    # --------------------------------------------------------
+    chart_left, chart_right = st.columns(2)
 
     with chart_left:
 
@@ -1116,13 +1041,8 @@ if not metrics.empty:
 
             st.plotly_chart(
                 fig,
-                width="stretch"
+                use_container_width=True
             )
-
-
-    # --------------------------------------------------------
-    # ERROR RATE
-    # --------------------------------------------------------
 
     with chart_right:
 
@@ -1158,16 +1078,10 @@ if not metrics.empty:
 
             st.plotly_chart(
                 fig,
-                width="stretch"
+                use_container_width=True
             )
 
-
     chart_left, chart_right = st.columns(2)
-
-
-    # --------------------------------------------------------
-    # DATABASE CPU
-    # --------------------------------------------------------
 
     with chart_left:
 
@@ -1203,13 +1117,8 @@ if not metrics.empty:
 
             st.plotly_chart(
                 fig,
-                width="stretch"
+                use_container_width=True
             )
-
-
-    # --------------------------------------------------------
-    # DATABASE LATENCY
-    # --------------------------------------------------------
 
     with chart_right:
 
@@ -1245,7 +1154,7 @@ if not metrics.empty:
 
             st.plotly_chart(
                 fig,
-                width="stretch"
+                use_container_width=True
             )
 
 
@@ -1253,15 +1162,12 @@ if not metrics.empty:
 # ROOT CAUSE ANALYSIS
 # ============================================================
 
-render_html(
-    """
-    <div class="section-title">
-        🧠 Root Cause Analysis
-    </div>
-    """
+st.markdown(
+    '<div class="section-title">🧠 Root Cause Analysis</div>',
+    unsafe_allow_html=True
 )
 
-render_html(
+st.markdown(
     f"""
     <div class="root-cause">
 
@@ -1278,7 +1184,8 @@ render_html(
         </div>
 
     </div>
-    """
+    """,
+    unsafe_allow_html=True
 )
 
 
@@ -1286,12 +1193,9 @@ render_html(
 # DEPLOYMENT EVIDENCE
 # ============================================================
 
-render_html(
-    """
-    <div class="section-title">
-        🚀 Deployment Evidence
-    </div>
-    """
+st.markdown(
+    '<div class="section-title">🚀 Deployment Evidence</div>',
+    unsafe_allow_html=True
 )
 
 if not relevant_deployments.empty:
@@ -1307,7 +1211,6 @@ if not relevant_deployments.empty:
             deployment_time,
             "strftime"
         ):
-
             deployment_time = deployment_time.strftime(
                 "%Y-%m-%d %H:%M:%S"
             )
@@ -1350,7 +1253,7 @@ if not relevant_deployments.empty:
             except Exception:
                 pass
 
-        render_html(
+        st.markdown(
             f"""
             <div class="evidence-card">
 
@@ -1373,7 +1276,8 @@ if not relevant_deployments.empty:
                 </div>
 
             </div>
-            """
+            """,
+            unsafe_allow_html=True
         )
 
 else:
@@ -1387,12 +1291,9 @@ else:
 # APPLICATION LOG EVIDENCE
 # ============================================================
 
-render_html(
-    """
-    <div class="section-title">
-        📋 Application Log Evidence
-    </div>
-    """
+st.markdown(
+    '<div class="section-title">📋 Application Log Evidence</div>',
+    unsafe_allow_html=True
 )
 
 if not relevant_logs.empty:
@@ -1425,7 +1326,7 @@ if not relevant_logs.empty:
 
     st.dataframe(
         log_display,
-        width="stretch",
+        use_container_width=True,
         hide_index=True
     )
 
@@ -1440,12 +1341,9 @@ else:
 # REMEDIATION
 # ============================================================
 
-render_html(
-    """
-    <div class="section-title">
-        🛠️ Recommended Remediation
-    </div>
-    """
+st.markdown(
+    '<div class="section-title">🛠️ Recommended Remediation</div>',
+    unsafe_allow_html=True
 )
 
 for index, recommendation in enumerate(
@@ -1453,7 +1351,7 @@ for index, recommendation in enumerate(
     start=1
 ):
 
-    render_html(
+    st.markdown(
         f"""
         <div class="remediation">
 
@@ -1466,7 +1364,8 @@ for index, recommendation in enumerate(
             </span>
 
         </div>
-        """
+        """,
+        unsafe_allow_html=True
     )
 
 
@@ -1474,20 +1373,16 @@ for index, recommendation in enumerate(
 # INCIDENT SUMMARY
 # ============================================================
 
-render_html(
-    """
-    <div class="section-title">
-        📌 Investigation Summary
-    </div>
-    """
+st.markdown(
+    '<div class="section-title">📌 Investigation Summary</div>',
+    unsafe_allow_html=True
 )
 
 summary_left, summary_right = st.columns(2)
 
-
 with summary_left:
 
-    render_html(
+    st.markdown(
         f"""
         <div class="evidence-card">
 
@@ -1512,7 +1407,8 @@ with summary_left:
             </div>
 
         </div>
-        """
+        """,
+        unsafe_allow_html=True
     )
 
 
@@ -1524,7 +1420,7 @@ with summary_right:
         else "HEALTHY"
     )
 
-    render_html(
+    st.markdown(
         f"""
         <div class="evidence-card">
 
@@ -1546,7 +1442,8 @@ with summary_right:
             </div>
 
         </div>
-        """
+        """,
+        unsafe_allow_html=True
     )
 
 
@@ -1554,17 +1451,14 @@ with summary_right:
 # FOOTER
 # ============================================================
 
-render_html(
+st.markdown(
     """
     <div class="footer">
-
         AegisAI — Multi-Agent Production Incident Intelligence
-
         <br>
-
         ML Detection • Log Correlation • Deployment Analysis
         • Root Cause Intelligence • Remediation
-
     </div>
-    """
+    """,
+    unsafe_allow_html=True
 )
