@@ -213,9 +213,9 @@ def build_evidence_chain(investigation):
     Build a simple evidence chain connecting:
 
     Deployment
-          ↓
+        ↓
     Logs
-          ↓
+        ↓
     Anomaly
     """
 
