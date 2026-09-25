@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import textwrap
 
 import pandas as pd
 import streamlit as st
@@ -29,14 +30,23 @@ st.set_page_config(
 
 
 # ============================================================
+# HTML RENDER HELPER
+# ============================================================
+
+def render_html(content):
+    st.markdown(
+        textwrap.dedent(content),
+        unsafe_allow_html=True
+    )
+
+
+# ============================================================
 # CUSTOM CSS
 # ============================================================
 
-st.markdown(
+render_html(
     """
     <style>
-
-    /* ---------- GLOBAL ---------- */
 
     .stApp {
         background: #0b0f14;
@@ -51,9 +61,6 @@ st.markdown(
     h1, h2, h3, h4 {
         letter-spacing: -0.3px;
     }
-
-
-    /* ---------- SIDEBAR ---------- */
 
     section[data-testid="stSidebar"] {
         background: #10151d;
@@ -97,9 +104,6 @@ st.markdown(
         font-size: 13px;
     }
 
-
-    /* ---------- HEADER ---------- */
-
     .hero {
         padding: 4px 0 22px 0;
     }
@@ -115,9 +119,6 @@ st.markdown(
         color: #8995a6;
         font-size: 14px;
     }
-
-
-    /* ---------- METRIC CARDS ---------- */
 
     .metric-card {
         background: #111720;
@@ -144,9 +145,6 @@ st.markdown(
         font-size: 11px;
         margin-top: 5px;
     }
-
-
-    /* ---------- INCIDENT HEADER ---------- */
 
     .incident-card {
         background: #131a22;
@@ -200,9 +198,6 @@ st.markdown(
         border: 1px solid #285f40;
     }
 
-
-    /* ---------- SECTION ---------- */
-
     .section-title {
         font-size: 21px;
         font-weight: 700;
@@ -210,9 +205,6 @@ st.markdown(
         margin-top: 28px;
         margin-bottom: 12px;
     }
-
-
-    /* ---------- EVIDENCE ---------- */
 
     .evidence-card {
         background: #111820;
@@ -234,9 +226,6 @@ st.markdown(
         font-size: 13px;
         line-height: 1.65;
     }
-
-
-    /* ---------- ROOT CAUSE ---------- */
 
     .root-cause {
         background: #121c27;
@@ -271,9 +260,6 @@ st.markdown(
         font-weight: 700;
     }
 
-
-    /* ---------- REMEDIATION ---------- */
-
     .remediation {
         background: #141b23;
         border: 1px solid #303b48;
@@ -294,9 +280,6 @@ st.markdown(
         line-height: 1.6;
     }
 
-
-    /* ---------- FOOTER ---------- */
-
     .footer {
         text-align: center;
         color: #586575;
@@ -305,8 +288,7 @@ st.markdown(
     }
 
     </style>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
@@ -316,6 +298,7 @@ st.markdown(
 
 @st.cache_data
 def load_metrics():
+
     path = PROJECT_ROOT / "data" / "metric" / "metrics.csv"
 
     if not path.exists():
@@ -334,6 +317,7 @@ def load_metrics():
 
 @st.cache_data
 def load_logs():
+
     path = PROJECT_ROOT / "data" / "log" / "log.csv"
 
     if not path.exists():
@@ -352,6 +336,7 @@ def load_logs():
 
 @st.cache_data
 def load_deployments():
+
     path = PROJECT_ROOT / "data" / "deployments" / "deployments.csv"
 
     if not path.exists():
@@ -370,6 +355,7 @@ def load_deployments():
 # ============================================================
 
 def detect_anomalies(metrics):
+
     if metrics.empty:
         return pd.DataFrame()
 
@@ -389,7 +375,8 @@ def detect_anomalies(metrics):
     ]
 
     available = [
-        column for column in feature_columns
+        column
+        for column in feature_columns
         if column in metrics.columns
     ]
 
@@ -439,6 +426,7 @@ def detect_anomalies(metrics):
 # ============================================================
 
 def correlate_logs(logs, first_anomaly):
+
     if logs.empty or first_anomaly is None:
         return pd.DataFrame()
 
@@ -459,6 +447,7 @@ def correlate_logs(logs, first_anomaly):
 
 
 def correlate_deployments(deployments, first_anomaly):
+
     if deployments.empty or first_anomaly is None:
         return pd.DataFrame()
 
@@ -486,7 +475,9 @@ def generate_root_cause(
     relevant_logs,
     relevant_deployments
 ):
+
     if anomalies.empty:
+
         return {
             "service": "N/A",
             "first_anomaly": None,
@@ -496,11 +487,16 @@ def generate_root_cause(
 
     first = anomalies.iloc[0]
 
-    service = first.get("service", "unknown")
+    service = first.get(
+        "service",
+        "unknown"
+    )
 
     first_anomaly = first["timestamp"]
 
-    deployment_text = "No recent deployment was correlated."
+    deployment_text = (
+        "No recent deployment was correlated."
+    )
 
     confidence = "MEDIUM"
 
@@ -514,8 +510,15 @@ def generate_root_cause(
             first_anomaly - deployment_time
         ).total_seconds() / 60
 
-        version = latest.get("version", "unknown")
-        commit = latest.get("commit_id", "unknown")
+        version = latest.get(
+            "version",
+            "unknown"
+        )
+
+        commit = latest.get(
+            "commit_id",
+            "unknown"
+        )
 
         deployment_text = (
             f"Production degradation is strongly correlated "
@@ -526,8 +529,6 @@ def generate_root_cause(
         )
 
         confidence = "HIGH"
-
-    log_text = ""
 
     if not relevant_logs.empty:
 
@@ -544,7 +545,12 @@ def generate_root_cause(
             ).lower()
 
             if (
-                level in ["ERROR", "CRITICAL", "WARN", "WARNING"]
+                level in [
+                    "ERROR",
+                    "CRITICAL",
+                    "WARN",
+                    "WARNING"
+                ]
                 or "database" in message
                 or "timeout" in message
             ):
@@ -607,12 +613,16 @@ def generate_remediation(
         [
             "Inspect database connection-pool configuration "
             "and current pool utilization.",
+
             "Review slow authentication queries and database "
             "execution plans introduced by the recent change.",
+
             "Temporarily reduce database pressure and monitor "
             "authentication latency and timeout rate.",
+
             "Validate the remediation in a staging environment "
             "before production rollout.",
+
             "Add an alert for connection-pool saturation and "
             "authentication timeout spikes.",
         ]
@@ -664,54 +674,58 @@ remediation = generate_remediation(
 
 with st.sidebar:
 
-    st.markdown(
+    render_html(
         """
         <div class="sidebar-brand">
             <div class="sidebar-title">🛡️ AegisAI</div>
+
             <div class="sidebar-subtitle">
                 Production incident investigation
                 and root-cause intelligence.
             </div>
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
     st.divider()
 
-    st.markdown(
-        '<div class="sidebar-section">System Status</div>',
-        unsafe_allow_html=True
+    render_html(
+        """
+        <div class="sidebar-section">
+            System Status
+        </div>
+        """
     )
 
     if not anomalies.empty:
 
-        st.markdown(
+        render_html(
             """
             <div class="status-badge status-danger">
                 ● INCIDENT DETECTED
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
 
     else:
 
-        st.markdown(
+        render_html(
             """
             <div class="status-badge status-success">
                 ● SYSTEM HEALTHY
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
 
-    st.markdown(
-        '<div class="sidebar-section">Platform Metrics</div>',
-        unsafe_allow_html=True
+    render_html(
+        """
+        <div class="sidebar-section">
+            Platform Metrics
+        </div>
+        """
     )
 
-    st.markdown(
+    render_html(
         f"""
         <div class="sidebar-stat">
             Metrics&nbsp;&nbsp;: <b>{len(metrics)}</b>
@@ -728,13 +742,15 @@ with st.sidebar:
         <div class="sidebar-stat">
             Anomalies&nbsp;&nbsp;: <b>{len(anomalies)}</b>
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
-    st.markdown(
-        '<div class="sidebar-section">Engine</div>',
-        unsafe_allow_html=True
+    render_html(
+        """
+        <div class="sidebar-section">
+            Engine
+        </div>
+        """
     )
 
     st.caption("ML Anomaly Detection")
@@ -748,16 +764,21 @@ with st.sidebar:
 # HERO
 # ============================================================
 
-st.markdown(
+render_html(
     """
     <div class="hero">
-        <div class="hero-title">🛡️ AegisAI</div>
-        <div class="hero-subtitle">
-            Autonomous AI-Powered Production Incident Intelligence Platform
+
+        <div class="hero-title">
+            🛡️ AegisAI
         </div>
+
+        <div class="hero-subtitle">
+            Autonomous AI-Powered Production Incident
+            Intelligence Platform
+        </div>
+
     </div>
-    """,
-    unsafe_allow_html=True
+    """
 )
 
 
@@ -765,9 +786,12 @@ st.markdown(
 # PRODUCTION OVERVIEW
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">📊 Production Overview</div>',
-    unsafe_allow_html=True
+render_html(
+    """
+    <div class="section-title">
+        📊 Production Overview
+    </div>
+    """
 )
 
 affected_service = "N/A"
@@ -782,76 +806,122 @@ if not anomalies.empty and "service" in anomalies.columns:
 
 c1, c2, c3, c4, c5 = st.columns(5)
 
+
 with c1:
-    st.markdown(
+
+    render_html(
         f"""
         <div class="metric-card">
-            <div class="metric-label">Total Metrics</div>
-            <div class="metric-value">{len(metrics)}</div>
+
+            <div class="metric-label">
+                Total Metrics
+            </div>
+
+            <div class="metric-value">
+                {len(metrics)}
+            </div>
+
             <div class="metric-description">
                 Production observations
             </div>
+
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
+
 with c2:
-    st.markdown(
+
+    render_html(
         f"""
         <div class="metric-card">
-            <div class="metric-label">Anomalies</div>
-            <div class="metric-value">{len(anomalies)}</div>
+
+            <div class="metric-label">
+                Anomalies
+            </div>
+
+            <div class="metric-value">
+                {len(anomalies)}
+            </div>
+
             <div class="metric-description">
                 ML detected anomalies
             </div>
+
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
+
 with c3:
-    st.markdown(
+
+    render_html(
         f"""
         <div class="metric-card">
-            <div class="metric-label">Log Events</div>
-            <div class="metric-value">{len(logs)}</div>
+
+            <div class="metric-label">
+                Log Events
+            </div>
+
+            <div class="metric-value">
+                {len(logs)}
+            </div>
+
             <div class="metric-description">
                 Application events
             </div>
+
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
+
 with c4:
-    st.markdown(
+
+    render_html(
         f"""
         <div class="metric-card">
-            <div class="metric-label">Deployments</div>
-            <div class="metric-value">{len(deployments)}</div>
+
+            <div class="metric-label">
+                Deployments
+            </div>
+
+            <div class="metric-value">
+                {len(deployments)}
+            </div>
+
             <div class="metric-description">
                 Recent releases
             </div>
+
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
+
 with c5:
-    st.markdown(
+
+    render_html(
         f"""
         <div class="metric-card">
-            <div class="metric-label">Affected Service</div>
-            <div class="metric-value" style="font-size:21px;">
+
+            <div class="metric-label">
+                Affected Service
+            </div>
+
+            <div
+                class="metric-value"
+                style="font-size:21px;"
+            >
                 {affected_service}
             </div>
+
             <div class="metric-description">
                 Impacted production service
             </div>
+
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
 
@@ -859,20 +929,25 @@ with c5:
 # INCIDENT STATUS
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">🚨 Incident Status</div>',
-    unsafe_allow_html=True
+render_html(
+    """
+    <div class="section-title">
+        🚨 Incident Status
+    </div>
+    """
 )
 
 if not anomalies.empty:
 
     first_time_text = (
-        first_anomaly.strftime("%Y-%m-%d %H:%M:%S")
+        first_anomaly.strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
         if first_anomaly is not None
         else "Unknown"
     )
 
-    st.markdown(
+    render_html(
         f"""
         <div class="incident-card incident">
 
@@ -897,13 +972,12 @@ if not anomalies.empty:
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
 else:
 
-    st.markdown(
+    render_html(
         """
         <div class="incident-card healthy">
 
@@ -921,8 +995,7 @@ else:
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
 
@@ -932,9 +1005,12 @@ else:
 
 if not anomalies.empty:
 
-    st.markdown(
-        '<div class="section-title">🔎 Detected Anomalies</div>',
-        unsafe_allow_html=True
+    render_html(
+        """
+        <div class="section-title">
+            🔎 Detected Anomalies
+        </div>
+        """
     )
 
     display_columns = [
@@ -952,7 +1028,9 @@ if not anomalies.empty:
         if column in anomalies.columns
     ]
 
-    anomaly_table = anomalies[available_columns].copy()
+    anomaly_table = anomalies[
+        available_columns
+    ].copy()
 
     if "timestamp" in anomaly_table.columns:
 
@@ -987,18 +1065,22 @@ if not anomalies.empty:
 
 if not metrics.empty:
 
-    st.markdown(
-        '<div class="section-title">📈 Production Metrics</div>',
-        unsafe_allow_html=True
+    render_html(
+        """
+        <div class="section-title">
+            📈 Production Metrics
+        </div>
+        """
     )
 
     chart_left, chart_right = st.columns(2)
 
     chart_data = metrics.copy()
 
-    # ------------------------------------------
+
+    # --------------------------------------------------------
     # LATENCY
-    # ------------------------------------------
+    # --------------------------------------------------------
 
     with chart_left:
 
@@ -1038,9 +1120,9 @@ if not metrics.empty:
             )
 
 
-    # ------------------------------------------
+    # --------------------------------------------------------
     # ERROR RATE
-    # ------------------------------------------
+    # --------------------------------------------------------
 
     with chart_right:
 
@@ -1083,9 +1165,9 @@ if not metrics.empty:
     chart_left, chart_right = st.columns(2)
 
 
-    # ------------------------------------------
+    # --------------------------------------------------------
     # DATABASE CPU
-    # ------------------------------------------
+    # --------------------------------------------------------
 
     with chart_left:
 
@@ -1125,9 +1207,9 @@ if not metrics.empty:
             )
 
 
-    # ------------------------------------------
+    # --------------------------------------------------------
     # DATABASE LATENCY
-    # ------------------------------------------
+    # --------------------------------------------------------
 
     with chart_right:
 
@@ -1171,12 +1253,15 @@ if not metrics.empty:
 # ROOT CAUSE ANALYSIS
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">🧠 Root Cause Analysis</div>',
-    unsafe_allow_html=True
+render_html(
+    """
+    <div class="section-title">
+        🧠 Root Cause Analysis
+    </div>
+    """
 )
 
-st.markdown(
+render_html(
     f"""
     <div class="root-cause">
 
@@ -1193,8 +1278,7 @@ st.markdown(
         </div>
 
     </div>
-    """,
-    unsafe_allow_html=True
+    """
 )
 
 
@@ -1202,9 +1286,12 @@ st.markdown(
 # DEPLOYMENT EVIDENCE
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">🚀 Deployment Evidence</div>',
-    unsafe_allow_html=True
+render_html(
+    """
+    <div class="section-title">
+        🚀 Deployment Evidence
+    </div>
+    """
 )
 
 if not relevant_deployments.empty:
@@ -1220,6 +1307,7 @@ if not relevant_deployments.empty:
             deployment_time,
             "strftime"
         ):
+
             deployment_time = deployment_time.strftime(
                 "%Y-%m-%d %H:%M:%S"
             )
@@ -1247,6 +1335,7 @@ if not relevant_deployments.empty:
         minutes_before = ""
 
         if first_anomaly is not None:
+
             try:
 
                 diff = (
@@ -1261,7 +1350,7 @@ if not relevant_deployments.empty:
             except Exception:
                 pass
 
-        st.markdown(
+        render_html(
             f"""
             <div class="evidence-card">
 
@@ -1284,22 +1373,26 @@ if not relevant_deployments.empty:
                 </div>
 
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
 
 else:
 
-    st.info("No correlated deployments found.")
+    st.info(
+        "No correlated deployments found."
+    )
 
 
 # ============================================================
 # APPLICATION LOG EVIDENCE
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">📋 Application Log Evidence</div>',
-    unsafe_allow_html=True
+render_html(
+    """
+    <div class="section-title">
+        📋 Application Log Evidence
+    </div>
+    """
 )
 
 if not relevant_logs.empty:
@@ -1338,16 +1431,21 @@ if not relevant_logs.empty:
 
 else:
 
-    st.info("No correlated application logs found.")
+    st.info(
+        "No correlated application logs found."
+    )
 
 
 # ============================================================
 # REMEDIATION
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">🛠️ Recommended Remediation</div>',
-    unsafe_allow_html=True
+render_html(
+    """
+    <div class="section-title">
+        🛠️ Recommended Remediation
+    </div>
+    """
 )
 
 for index, recommendation in enumerate(
@@ -1355,7 +1453,7 @@ for index, recommendation in enumerate(
     start=1
 ):
 
-    st.markdown(
+    render_html(
         f"""
         <div class="remediation">
 
@@ -1368,8 +1466,7 @@ for index, recommendation in enumerate(
             </span>
 
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
 
@@ -1377,16 +1474,20 @@ for index, recommendation in enumerate(
 # INCIDENT SUMMARY
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">📌 Investigation Summary</div>',
-    unsafe_allow_html=True
+render_html(
+    """
+    <div class="section-title">
+        📌 Investigation Summary
+    </div>
+    """
 )
 
 summary_left, summary_right = st.columns(2)
 
+
 with summary_left:
 
-    st.markdown(
+    render_html(
         f"""
         <div class="evidence-card">
 
@@ -1411,14 +1512,19 @@ with summary_left:
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
 
 with summary_right:
 
-    st.markdown(
+    status = (
+        "INCIDENT_DETECTED"
+        if not anomalies.empty
+        else "HEALTHY"
+    )
+
+    render_html(
         f"""
         <div class="evidence-card">
 
@@ -1435,17 +1541,12 @@ with summary_right:
                 <b>{analysis["confidence"]}</b><br>
 
                 Status:
-                <b>
-                    {"INCIDENT_DETECTED"
-                    if not anomalies.empty
-                    else "HEALTHY"}
-                </b>
+                <b>{status}</b>
 
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
 
@@ -1453,14 +1554,17 @@ with summary_right:
 # FOOTER
 # ============================================================
 
-st.markdown(
+render_html(
     """
     <div class="footer">
+
         AegisAI — Multi-Agent Production Incident Intelligence
+
         <br>
+
         ML Detection • Log Correlation • Deployment Analysis
         • Root Cause Intelligence • Remediation
+
     </div>
-    """,
-    unsafe_allow_html=True
+    """
 )
