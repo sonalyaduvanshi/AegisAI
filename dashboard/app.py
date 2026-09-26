@@ -1,5 +1,7 @@
 from pathlib import Path
 import sys
+import html
+import textwrap
 
 import pandas as pd
 import streamlit as st
@@ -29,255 +31,263 @@ st.set_page_config(
 
 
 # ============================================================
+# HTML HELPER
+# IMPORTANT:
+# st.html() is used instead of st.markdown(...unsafe_allow_html=True)
+# so indented HTML cannot accidentally become a Markdown code block.
+# ============================================================
+
+def render_html(content: str, width="stretch"):
+    st.html(textwrap.dedent(content).strip(), width=width)
+
+
+# ============================================================
 # CUSTOM CSS
 # ============================================================
 
-st.markdown(
+render_html(
     """
     <style>
+        .stApp {
+            background: #0b0f14;
+        }
 
-    .stApp {
-        background: #0b0f14;
-    }
+        .main .block-container {
+            max-width: 1500px;
+            padding-top: 2rem;
+            padding-bottom: 4rem;
+        }
 
-    .main .block-container {
-        max-width: 1500px;
-        padding-top: 2rem;
-        padding-bottom: 4rem;
-    }
+        h1, h2, h3, h4 {
+            letter-spacing: -0.3px;
+        }
 
-    h1, h2, h3, h4 {
-        letter-spacing: -0.3px;
-    }
+        section[data-testid="stSidebar"] {
+            background: #10151d;
+            border-right: 1px solid #202733;
+        }
 
-    section[data-testid="stSidebar"] {
-        background: #10151d;
-        border-right: 1px solid #202733;
-    }
+        .sidebar-brand {
+            padding: 10px 4px 22px 4px;
+        }
 
-    .sidebar-brand {
-        padding: 10px 4px 22px 4px;
-    }
+        .sidebar-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #f4f7fb;
+        }
 
-    .sidebar-title {
-        font-size: 22px;
-        font-weight: 700;
-        color: #f4f7fb;
-    }
+        .sidebar-subtitle {
+            font-size: 12px;
+            color: #8c98a8;
+            line-height: 1.5;
+            margin-top: 6px;
+        }
 
-    .sidebar-subtitle {
-        font-size: 12px;
-        color: #8c98a8;
-        line-height: 1.5;
-        margin-top: 6px;
-    }
+        .sidebar-section {
+            color: #8c98a8;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 20px;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
 
-    .sidebar-section {
-        color: #8c98a8;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-top: 20px;
-        margin-bottom: 8px;
-        font-weight: 700;
-    }
+        .sidebar-stat {
+            background: #151b24;
+            border: 1px solid #252e3b;
+            border-radius: 8px;
+            padding: 9px 11px;
+            margin-bottom: 7px;
+            color: #dbe3ed;
+            font-size: 13px;
+        }
 
-    .sidebar-stat {
-        background: #151b24;
-        border: 1px solid #252e3b;
-        border-radius: 8px;
-        padding: 9px 11px;
-        margin-bottom: 7px;
-        color: #dbe3ed;
-        font-size: 13px;
-    }
+        .hero {
+            padding: 4px 0 22px 0;
+        }
 
-    .hero {
-        padding: 4px 0 22px 0;
-    }
+        .hero-title {
+            font-size: 36px;
+            font-weight: 750;
+            color: #f5f7fa;
+            margin-bottom: 3px;
+        }
 
-    .hero-title {
-        font-size: 36px;
-        font-weight: 750;
-        color: #f5f7fa;
-        margin-bottom: 3px;
-    }
+        .hero-subtitle {
+            color: #8995a6;
+            font-size: 14px;
+        }
 
-    .hero-subtitle {
-        color: #8995a6;
-        font-size: 14px;
-    }
+        .metric-card {
+            background: #111720;
+            border: 1px solid #252e3a;
+            border-radius: 10px;
+            padding: 18px 20px;
+            min-height: 105px;
+        }
 
-    .metric-card {
-        background: #111720;
-        border: 1px solid #252e3a;
-        border-radius: 10px;
-        padding: 18px 20px;
-        min-height: 105px;
-    }
+        .metric-label {
+            color: #8e9aaa;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
 
-    .metric-label {
-        color: #8e9aaa;
-        font-size: 12px;
-        margin-bottom: 10px;
-    }
+        .metric-value {
+            color: #f5f7fa;
+            font-size: 28px;
+            font-weight: 700;
+        }
 
-    .metric-value {
-        color: #f5f7fa;
-        font-size: 28px;
-        font-weight: 700;
-    }
+        .metric-description {
+            color: #687587;
+            font-size: 11px;
+            margin-top: 5px;
+        }
 
-    .metric-description {
-        color: #687587;
-        font-size: 11px;
-        margin-top: 5px;
-    }
+        .incident-card {
+            background: #131a22;
+            border: 1px solid #394554;
+            border-radius: 12px;
+            padding: 20px 22px;
+            margin-top: 5px;
+            margin-bottom: 20px;
+        }
 
-    .incident-card {
-        background: #131a22;
-        border: 1px solid #394554;
-        border-radius: 12px;
-        padding: 20px 22px;
-        margin-top: 5px;
-        margin-bottom: 20px;
-    }
+        .incident-card.incident {
+            border-left: 4px solid #d94a4a;
+        }
 
-    .incident-card.incident {
-        border-left: 4px solid #d94a4a;
-    }
+        .incident-card.healthy {
+            border-left: 4px solid #35b56b;
+        }
 
-    .incident-card.healthy {
-        border-left: 4px solid #35b56b;
-    }
+        .incident-title {
+            color: #f2f5f8;
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
 
-    .incident-title {
-        color: #f2f5f8;
-        font-size: 20px;
-        font-weight: 700;
-        margin-bottom: 12px;
-    }
+        .incident-detail {
+            color: #aab5c3;
+            font-size: 13px;
+            margin: 5px 0;
+        }
 
-    .incident-detail {
-        color: #aab5c3;
-        font-size: 13px;
-        margin: 5px 0;
-    }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 11px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
 
-    .status-badge {
-        display: inline-block;
-        padding: 5px 11px;
-        border-radius: 20px;
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.5px;
-        margin-bottom: 12px;
-    }
+        .status-danger {
+            color: #ffb4b4;
+            background: #321c21;
+            border: 1px solid #66313a;
+        }
 
-    .status-danger {
-        color: #ffb4b4;
-        background: #321c21;
-        border: 1px solid #66313a;
-    }
+        .status-success {
+            color: #a8e6bf;
+            background: #173024;
+            border: 1px solid #285f40;
+        }
 
-    .status-success {
-        color: #a8e6bf;
-        background: #173024;
-        border: 1px solid #285f40;
-    }
+        .section-title {
+            font-size: 21px;
+            font-weight: 700;
+            color: #f0f3f7;
+            margin-top: 28px;
+            margin-bottom: 12px;
+        }
 
-    .section-title {
-        font-size: 21px;
-        font-weight: 700;
-        color: #f0f3f7;
-        margin-top: 28px;
-        margin-bottom: 12px;
-    }
+        .evidence-card {
+            background: #111820;
+            border: 1px solid #26313e;
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin-bottom: 12px;
+        }
 
-    .evidence-card {
-        background: #111820;
-        border: 1px solid #26313e;
-        border-radius: 10px;
-        padding: 18px 20px;
-        margin-bottom: 12px;
-    }
+        .evidence-title {
+            color: #e5ebf2;
+            font-weight: 650;
+            font-size: 15px;
+            margin-bottom: 8px;
+        }
 
-    .evidence-title {
-        color: #e5ebf2;
-        font-weight: 650;
-        font-size: 15px;
-        margin-bottom: 8px;
-    }
+        .evidence-text {
+            color: #9da9b8;
+            font-size: 13px;
+            line-height: 1.65;
+        }
 
-    .evidence-text {
-        color: #9da9b8;
-        font-size: 13px;
-        line-height: 1.65;
-    }
+        .root-cause {
+            background: #121c27;
+            border: 1px solid #29435e;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 14px;
+        }
 
-    .root-cause {
-        background: #121c27;
-        border: 1px solid #29435e;
-        border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 14px;
-    }
+        .root-cause-title {
+            color: #e9f1f8;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
 
-    .root-cause-title {
-        color: #e9f1f8;
-        font-size: 16px;
-        font-weight: 700;
-        margin-bottom: 10px;
-    }
+        .root-cause-text {
+            color: #aeb9c7;
+            line-height: 1.7;
+            font-size: 13px;
+        }
 
-    .root-cause-text {
-        color: #aeb9c7;
-        line-height: 1.7;
-        font-size: 13px;
-    }
+        .confidence {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 5px 10px;
+            border-radius: 6px;
+            background: #173224;
+            color: #9be0b7;
+            border: 1px solid #2b6544;
+            font-size: 11px;
+            font-weight: 700;
+        }
 
-    .confidence {
-        display: inline-block;
-        margin-top: 12px;
-        padding: 5px 10px;
-        border-radius: 6px;
-        background: #173224;
-        color: #9be0b7;
-        border: 1px solid #2b6544;
-        font-size: 11px;
-        font-weight: 700;
-    }
+        .remediation {
+            background: #141b23;
+            border: 1px solid #303b48;
+            border-radius: 10px;
+            padding: 18px 20px;
+            margin-bottom: 10px;
+        }
 
-    .remediation {
-        background: #141b23;
-        border: 1px solid #303b48;
-        border-radius: 10px;
-        padding: 18px 20px;
-        margin-bottom: 10px;
-    }
+        .remediation-number {
+            color: #91b8df;
+            font-weight: 700;
+            margin-right: 8px;
+        }
 
-    .remediation-number {
-        color: #91b8df;
-        font-weight: 700;
-        margin-right: 8px;
-    }
+        .remediation-text {
+            color: #c2cad4;
+            font-size: 13px;
+            line-height: 1.6;
+        }
 
-    .remediation-text {
-        color: #c2cad4;
-        font-size: 13px;
-        line-height: 1.6;
-    }
-
-    .footer {
-        text-align: center;
-        color: #586575;
-        font-size: 11px;
-        padding: 30px 0 10px 0;
-    }
-
+        .footer {
+            text-align: center;
+            color: #586575;
+            font-size: 11px;
+            padding: 30px 0 10px 0;
+        }
     </style>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 
@@ -287,7 +297,6 @@ st.markdown(
 
 @st.cache_data
 def load_metrics():
-
     paths = [
         PROJECT_ROOT / "data" / "metric" / "metrics.csv",
         PROJECT_ROOT / "data" / "metrics" / "metrics.csv",
@@ -304,7 +313,7 @@ def load_metrics():
         if "timestamp" in df.columns:
             df["timestamp"] = pd.to_datetime(
                 df["timestamp"],
-                errors="coerce"
+                errors="coerce",
             )
 
         return df
@@ -315,7 +324,6 @@ def load_metrics():
 
 @st.cache_data
 def load_logs():
-
     paths = [
         PROJECT_ROOT / "data" / "log" / "log.csv",
         PROJECT_ROOT / "data" / "logs" / "logs.csv",
@@ -332,7 +340,7 @@ def load_logs():
         if "timestamp" in df.columns:
             df["timestamp"] = pd.to_datetime(
                 df["timestamp"],
-                errors="coerce"
+                errors="coerce",
             )
 
         return df
@@ -343,13 +351,7 @@ def load_logs():
 
 @st.cache_data
 def load_deployments():
-
-    path = (
-        PROJECT_ROOT
-        / "data"
-        / "deployments"
-        / "deployments.csv"
-    )
+    path = PROJECT_ROOT / "data" / "deployments" / "deployments.csv"
 
     if not path.exists():
         return pd.DataFrame()
@@ -360,7 +362,7 @@ def load_deployments():
         if "timestamp" in df.columns:
             df["timestamp"] = pd.to_datetime(
                 df["timestamp"],
-                errors="coerce"
+                errors="coerce",
             )
 
         return df
@@ -374,7 +376,6 @@ def load_deployments():
 # ============================================================
 
 def detect_anomalies(metrics):
-
     if metrics.empty:
         return pd.DataFrame()
 
@@ -407,34 +408,27 @@ def detect_anomalies(metrics):
     for column in available:
         working[column] = pd.to_numeric(
             working[column],
-            errors="coerce"
+            errors="coerce",
         )
 
-    working = working.dropna(
-        subset=available
-    )
+    working = working.dropna(subset=available)
 
     if len(working) < 5:
         return pd.DataFrame()
 
     try:
-
         model = IsolationForest(
             contamination=0.30,
             random_state=42,
-            n_estimators=200
+            n_estimators=200,
         )
 
-        working["anomaly_prediction"] = (
-            model.fit_predict(
-                working[available]
-            )
+        working["anomaly_prediction"] = model.fit_predict(
+            working[available]
         )
 
-        working["anomaly_score"] = (
-            model.decision_function(
-                working[available]
-            )
+        working["anomaly_score"] = model.decision_function(
+            working[available]
         )
 
     except Exception:
@@ -445,9 +439,7 @@ def detect_anomalies(metrics):
     ].copy()
 
     if "timestamp" in anomalies.columns:
-        anomalies = anomalies.sort_values(
-            "timestamp"
-        )
+        anomalies = anomalies.sort_values("timestamp")
 
     return anomalies
 
@@ -456,12 +448,7 @@ def detect_anomalies(metrics):
 # LOG CORRELATION
 # ============================================================
 
-def correlate_logs(
-    logs,
-    first_anomaly,
-    service=None
-):
-
+def correlate_logs(logs, first_anomaly, service=None):
     if logs.empty or first_anomaly is None:
         return pd.DataFrame()
 
@@ -470,52 +457,31 @@ def correlate_logs(
 
     working = logs.copy()
 
-    start = (
-        first_anomaly
-        - pd.Timedelta(minutes=3)
-    )
-
-    end = (
-        first_anomaly
-        + pd.Timedelta(minutes=3)
-    )
+    start = first_anomaly - pd.Timedelta(minutes=3)
+    end = first_anomaly + pd.Timedelta(minutes=3)
 
     relevant = working[
         (working["timestamp"] >= start)
         & (working["timestamp"] <= end)
     ].copy()
 
-    if (
-        service is not None
-        and "service" in relevant.columns
-    ):
+    if service is not None and "service" in relevant.columns:
         service_logs = relevant[
-            relevant["service"].astype(str)
-            == str(service)
+            relevant["service"].astype(str) == str(service)
         ]
 
         if not service_logs.empty:
             relevant = service_logs
 
-    return relevant.sort_values(
-        "timestamp"
-    )
+    return relevant.sort_values("timestamp")
 
 
 # ============================================================
 # DEPLOYMENT CORRELATION
 # ============================================================
 
-def correlate_deployments(
-    deployments,
-    first_anomaly,
-    service=None
-):
-
-    if (
-        deployments.empty
-        or first_anomaly is None
-    ):
+def correlate_deployments(deployments, first_anomaly, service=None):
+    if deployments.empty or first_anomaly is None:
         return pd.DataFrame()
 
     if "timestamp" not in deployments.columns:
@@ -523,32 +489,22 @@ def correlate_deployments(
 
     working = deployments.copy()
 
-    window_start = (
-        first_anomaly
-        - pd.Timedelta(hours=2)
-    )
+    window_start = first_anomaly - pd.Timedelta(hours=2)
 
     relevant = working[
         (working["timestamp"] <= first_anomaly)
         & (working["timestamp"] >= window_start)
     ].copy()
 
-    if (
-        service is not None
-        and "service" in relevant.columns
-    ):
-
+    if service is not None and "service" in relevant.columns:
         service_deployments = relevant[
-            relevant["service"].astype(str)
-            == str(service)
+            relevant["service"].astype(str) == str(service)
         ]
 
         if not service_deployments.empty:
             relevant = service_deployments
 
-    return relevant.sort_values(
-        "timestamp"
-    )
+    return relevant.sort_values("timestamp")
 
 
 # ============================================================
@@ -558,138 +514,72 @@ def correlate_deployments(
 def generate_root_cause(
     anomalies,
     relevant_logs,
-    relevant_deployments
+    relevant_deployments,
 ):
-
     if anomalies.empty:
-
         return {
             "service": "N/A",
             "first_anomaly": None,
-            "root_cause": (
-                "No production anomaly detected."
-            ),
+            "root_cause": "No production anomaly detected.",
             "confidence": "LOW",
         }
 
     first = anomalies.iloc[0]
 
-    service = first.get(
-        "service",
-        "unknown"
-    )
+    service = first.get("service", "unknown")
+    first_anomaly = first.get("timestamp", None)
 
-    first_anomaly = first.get(
-        "timestamp",
-        None
-    )
-
-    root_cause = (
-        "Production degradation was detected."
-    )
-
+    root_cause = "Production degradation was detected."
     evidence = []
-
     confidence = "MEDIUM"
 
-    # --------------------------------------------------------
     # Deployment evidence
-    # --------------------------------------------------------
-
     if not relevant_deployments.empty:
+        latest = relevant_deployments.iloc[-1]
 
-        latest = (
-            relevant_deployments.iloc[-1]
-        )
+        deployment_time = latest.get("timestamp", None)
+        version = latest.get("version", "unknown")
+        commit = latest.get("commit_id", "unknown")
 
-        deployment_time = latest.get(
-            "timestamp",
-            None
-        )
-
-        version = latest.get(
-            "version",
-            "unknown"
-        )
-
-        commit = latest.get(
-            "commit_id",
-            "unknown"
-        )
-
-        if (
-            deployment_time is not None
-            and first_anomaly is not None
-        ):
-
+        if deployment_time is not None and first_anomaly is not None:
             minutes_before = (
-                first_anomaly
-                - deployment_time
+                first_anomaly - deployment_time
             ).total_seconds() / 60
 
             if minutes_before >= 0:
-
                 evidence.append(
-                    f"deployment {version} "
-                    f"({commit}) occurred "
-                    f"{minutes_before:.2f} minutes "
-                    f"before the first anomaly"
+                    f"deployment {version} ({commit}) occurred "
+                    f"{minutes_before:.2f} minutes before the first anomaly"
                 )
 
-    # --------------------------------------------------------
     # Database log evidence
-    # --------------------------------------------------------
-
     database_related = False
 
     if not relevant_logs.empty:
-
         for _, row in relevant_logs.iterrows():
-
-            message = str(
-                row.get(
-                    "message",
-                    ""
-                )
-            ).lower()
-
-            level = str(
-                row.get(
-                    "level",
-                    ""
-                )
-            ).upper()
+            message = str(row.get("message", "")).lower()
 
             if (
                 "database" in message
                 or "connection" in message
                 or "timeout" in message
             ):
-
                 database_related = True
-
                 break
 
     if database_related:
-
         evidence.append(
-            "application logs contain "
-            "database connection or timeout failures"
+            "application logs contain database connection or timeout failures"
         )
 
-    # --------------------------------------------------------
     # Final RCA
-    # --------------------------------------------------------
-
     if evidence:
-
         root_cause = (
             "The incident is temporally associated with "
             + "; ".join(evidence)
             + ". These signals provide correlation evidence "
-              "but do not by themselves prove causation."
+            "but do not by themselves prove causation."
         )
-
         confidence = "HIGH"
 
     return {
@@ -704,54 +594,25 @@ def generate_root_cause(
 # REMEDIATION
 # ============================================================
 
-def generate_remediation(
-    analysis,
-    relevant_deployments
-):
-
+def generate_remediation(analysis, relevant_deployments):
     recommendations = []
 
     if not relevant_deployments.empty:
-
-        latest = (
-            relevant_deployments.iloc[-1]
-        )
-
-        version = latest.get(
-            "version",
-            "recent deployment"
-        )
+        latest = relevant_deployments.iloc[-1]
+        version = latest.get("version", "recent deployment")
 
         recommendations.append(
-            f"Review deployment {version} "
-            "and compare database-query behavior "
-            "before and after the release."
+            f"Review deployment {version} and compare "
+            "database-query behavior before and after the release."
         )
 
     recommendations.extend(
         [
-            (
-                "Inspect database connection-pool "
-                "configuration and current pool utilization."
-            ),
-            (
-                "Review slow authentication queries "
-                "and database execution plans associated "
-                "with the recent change."
-            ),
-            (
-                "Reduce database pressure temporarily "
-                "and monitor authentication latency "
-                "and timeout rate."
-            ),
-            (
-                "Validate the remediation in a staging "
-                "environment before production rollout."
-            ),
-            (
-                "Add alerts for connection-pool saturation "
-                "and authentication timeout spikes."
-            ),
+            "Inspect database connection-pool configuration and current pool utilization.",
+            "Review slow authentication queries and database execution plans associated with the recent change.",
+            "Reduce database pressure temporarily and monitor authentication latency and timeout rate.",
+            "Validate the remediation in a staging environment before production rollout.",
+            "Add alerts for connection-pool saturation and authentication timeout spikes.",
         ]
     )
 
@@ -766,64 +627,42 @@ metrics = load_metrics()
 logs = load_logs()
 deployments = load_deployments()
 
-anomalies = detect_anomalies(
-    metrics
-)
+anomalies = detect_anomalies(metrics)
 
 first_anomaly = None
 
 if not anomalies.empty:
-
-    first_anomaly = (
-        anomalies.iloc[0]["timestamp"]
-    )
+    first_anomaly = anomalies.iloc[0]["timestamp"]
 
 affected_service = "N/A"
 
-if (
-    not anomalies.empty
-    and "service" in anomalies.columns
-):
-
-    services = (
-        anomalies["service"]
-        .dropna()
-        .unique()
-    )
+if not anomalies.empty and "service" in anomalies.columns:
+    services = anomalies["service"].dropna().unique()
 
     if len(services) > 0:
-        affected_service = str(
-            services[0]
-        )
-
+        affected_service = str(services[0])
 
 relevant_logs = correlate_logs(
     logs,
     first_anomaly,
-    affected_service
-    if affected_service != "N/A"
-    else None
+    affected_service if affected_service != "N/A" else None,
 )
 
-relevant_deployments = (
-    correlate_deployments(
-        deployments,
-        first_anomaly,
-        affected_service
-        if affected_service != "N/A"
-        else None
-    )
+relevant_deployments = correlate_deployments(
+    deployments,
+    first_anomaly,
+    affected_service if affected_service != "N/A" else None,
 )
 
 analysis = generate_root_cause(
     anomalies,
     relevant_logs,
-    relevant_deployments
+    relevant_deployments,
 )
 
 remediation = generate_remediation(
     analysis,
-    relevant_deployments
+    relevant_deployments,
 )
 
 
@@ -832,11 +671,9 @@ remediation = generate_remediation(
 # ============================================================
 
 with st.sidebar:
-
-    st.markdown(
+    render_html(
         """
         <div class="sidebar-brand">
-
             <div class="sidebar-title">
                 🛡️ AegisAI
             </div>
@@ -845,55 +682,42 @@ with st.sidebar:
                 Production incident investigation
                 and root-cause intelligence.
             </div>
-
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
     st.divider()
 
-    if st.button(
-        "🔄 Refresh Investigation",
-        use_container_width=True
-    ):
-
+    if st.button("🔄 Refresh Investigation", width="stretch"):
         st.cache_data.clear()
         st.rerun()
 
-    st.markdown(
-        '<div class="sidebar-section">System Status</div>',
-        unsafe_allow_html=True
+    render_html(
+        '<div class="sidebar-section">System Status</div>'
     )
 
     if not anomalies.empty:
-
-        st.markdown(
+        render_html(
             """
             <div class="status-badge status-danger">
                 ● INCIDENT DETECTED
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
-
     else:
-
-        st.markdown(
+        render_html(
             """
             <div class="status-badge status-success">
                 ● SYSTEM HEALTHY
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
 
-    st.markdown(
-        '<div class="sidebar-section">Platform Metrics</div>',
-        unsafe_allow_html=True
+    render_html(
+        '<div class="sidebar-section">Platform Metrics</div>'
     )
 
-    st.markdown(
+    render_html(
         f"""
         <div class="sidebar-stat">
             Metrics&nbsp;&nbsp;: <b>{len(metrics)}</b>
@@ -910,13 +734,11 @@ with st.sidebar:
         <div class="sidebar-stat">
             Anomalies&nbsp;&nbsp;: <b>{len(anomalies)}</b>
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
-    st.markdown(
-        '<div class="sidebar-section">Engine</div>',
-        unsafe_allow_html=True
+    render_html(
+        '<div class="sidebar-section">Engine</div>'
     )
 
     st.caption("✓ ML Anomaly Detection")
@@ -930,10 +752,9 @@ with st.sidebar:
 # HERO
 # ============================================================
 
-st.markdown(
+render_html(
     """
     <div class="hero">
-
         <div class="hero-title">
             🛡️ AegisAI
         </div>
@@ -942,10 +763,8 @@ st.markdown(
             Autonomous AI-Powered Production
             Incident Intelligence Platform
         </div>
-
     </div>
-    """,
-    unsafe_allow_html=True
+    """
 )
 
 
@@ -953,53 +772,36 @@ st.markdown(
 # PRODUCTION OVERVIEW
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">📊 Production Overview</div>',
-    unsafe_allow_html=True
+render_html(
+    '<div class="section-title">📊 Production Overview</div>'
 )
-
 
 c1, c2, c3, c4, c5 = st.columns(5)
 
 
-def metric_card(
-    container,
-    label,
-    value,
-    description,
-    small=False
-):
-
+def metric_card(container, label, value, description, small=False):
     with container:
+        size = "21px" if small else "28px"
 
-        size = (
-            "21px"
-            if small
-            else "28px"
-        )
-
-        st.markdown(
+        render_html(
             f"""
             <div class="metric-card">
-
                 <div class="metric-label">
-                    {label}
+                    {html.escape(str(label))}
                 </div>
 
                 <div
                     class="metric-value"
                     style="font-size:{size};"
                 >
-                    {value}
+                    {html.escape(str(value))}
                 </div>
 
                 <div class="metric-description">
-                    {description}
+                    {html.escape(str(description))}
                 </div>
-
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
 
 
@@ -1007,28 +809,28 @@ metric_card(
     c1,
     "Total Metrics",
     len(metrics),
-    "Production observations"
+    "Production observations",
 )
 
 metric_card(
     c2,
     "Anomalies",
     len(anomalies),
-    "ML detected anomalies"
+    "ML detected anomalies",
 )
 
 metric_card(
     c3,
     "Log Events",
     len(logs),
-    "Application events"
+    "Application events",
 )
 
 metric_card(
     c4,
     "Deployments",
     len(deployments),
-    "Recent releases"
+    "Recent releases",
 )
 
 metric_card(
@@ -1036,7 +838,7 @@ metric_card(
     "Affected Service",
     affected_service,
     "Impacted production service",
-    small=True
+    small=True,
 )
 
 
@@ -1044,26 +846,20 @@ metric_card(
 # INCIDENT STATUS
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">🚨 Incident Status</div>',
-    unsafe_allow_html=True
+render_html(
+    '<div class="section-title">🚨 Incident Status</div>'
 )
 
-
 if not anomalies.empty:
-
     first_time_text = (
-        first_anomaly.strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        first_anomaly.strftime("%Y-%m-%d %H:%M:%S")
         if first_anomaly is not None
         else "Unknown"
     )
 
-    st.markdown(
+    render_html(
         f"""
         <div class="incident-card incident">
-
             <div class="status-badge status-danger">
                 INCIDENT DETECTED
             </div>
@@ -1073,31 +869,23 @@ if not anomalies.empty:
             </div>
 
             <div class="incident-detail">
-                <b>Service:</b>
-                {affected_service}
+                <b>Service:</b> {html.escape(str(affected_service))}
             </div>
 
             <div class="incident-detail">
-                <b>First anomaly:</b>
-                {first_time_text}
+                <b>First anomaly:</b> {html.escape(str(first_time_text))}
             </div>
 
             <div class="incident-detail">
-                <b>Anomalies detected:</b>
-                {len(anomalies)}
+                <b>Anomalies detected:</b> {len(anomalies)}
             </div>
-
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
-
 else:
-
-    st.markdown(
+    render_html(
         """
         <div class="incident-card healthy">
-
             <div class="status-badge status-success">
                 SYSTEM HEALTHY
             </div>
@@ -1110,10 +898,8 @@ else:
                 Current production metrics are within
                 the detected baseline.
             </div>
-
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
 
@@ -1122,10 +908,8 @@ else:
 # ============================================================
 
 if not anomalies.empty:
-
-    st.markdown(
-        '<div class="section-title">🔎 Detected Anomalies</div>',
-        unsafe_allow_html=True
+    render_html(
+        '<div class="section-title">🔎 Detected Anomalies</div>'
     )
 
     display_columns = [
@@ -1144,17 +928,12 @@ if not anomalies.empty:
         if column in anomalies.columns
     ]
 
-    anomaly_table = anomalies[
-        available_columns
-    ].copy()
+    anomaly_table = anomalies[available_columns].copy()
 
     if "timestamp" in anomaly_table.columns:
-
         anomaly_table["timestamp"] = (
             anomaly_table["timestamp"]
-            .dt.strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            .dt.strftime("%Y-%m-%d %H:%M:%S")
         )
 
     rename_map = {
@@ -1167,14 +946,12 @@ if not anomalies.empty:
         "anomaly_score": "Anomaly Score",
     }
 
-    anomaly_table = anomaly_table.rename(
-        columns=rename_map
-    )
+    anomaly_table = anomaly_table.rename(columns=rename_map)
 
     st.dataframe(
         anomaly_table,
-        use_container_width=True,
-        hide_index=True
+        width="stretch",
+        hide_index=True,
     )
 
 
@@ -1183,27 +960,16 @@ if not anomalies.empty:
 # ============================================================
 
 if not metrics.empty:
-
-    st.markdown(
-        '<div class="section-title">📈 Production Metrics</div>',
-        unsafe_allow_html=True
+    render_html(
+        '<div class="section-title">📈 Production Metrics</div>'
     )
 
     chart_data = metrics.copy()
 
     chart_left, chart_right = st.columns(2)
 
-    # --------------------------------------------------------
-    # LATENCY
-    # --------------------------------------------------------
-
     with chart_left:
-
-        if {
-            "timestamp",
-            "avg_latency_ms"
-        }.issubset(chart_data.columns):
-
+        if {"timestamp", "avg_latency_ms"}.issubset(chart_data.columns):
             fig = px.line(
                 chart_data,
                 x="timestamp",
@@ -1212,40 +978,25 @@ if not metrics.empty:
                 title="Average Latency",
                 labels={
                     "timestamp": "Time",
-                    "avg_latency_ms":
-                        "Latency (ms)",
-                }
+                    "avg_latency_ms": "Latency (ms)",
+                },
             )
 
             fig.update_layout(
                 template="plotly_dark",
                 height=340,
-                margin=dict(
-                    l=10,
-                    r=10,
-                    t=45,
-                    b=10
-                ),
+                margin=dict(l=10, r=10, t=45, b=10),
                 paper_bgcolor="#0b0f14",
                 plot_bgcolor="#0b0f14",
             )
 
             st.plotly_chart(
                 fig,
-                use_container_width=True
+                width="stretch",
             )
 
-    # --------------------------------------------------------
-    # ERROR RATE
-    # --------------------------------------------------------
-
     with chart_right:
-
-        if {
-            "timestamp",
-            "error_rate"
-        }.issubset(chart_data.columns):
-
+        if {"timestamp", "error_rate"}.issubset(chart_data.columns):
             fig = px.line(
                 chart_data,
                 x="timestamp",
@@ -1254,42 +1005,27 @@ if not metrics.empty:
                 title="Error Rate",
                 labels={
                     "timestamp": "Time",
-                    "error_rate":
-                        "Error Rate (%)",
-                }
+                    "error_rate": "Error Rate (%)",
+                },
             )
 
             fig.update_layout(
                 template="plotly_dark",
                 height=340,
-                margin=dict(
-                    l=10,
-                    r=10,
-                    t=45,
-                    b=10
-                ),
+                margin=dict(l=10, r=10, t=45, b=10),
                 paper_bgcolor="#0b0f14",
                 plot_bgcolor="#0b0f14",
             )
 
             st.plotly_chart(
                 fig,
-                use_container_width=True
+                width="stretch",
             )
-
-    # --------------------------------------------------------
-    # DATABASE CPU
-    # --------------------------------------------------------
 
     chart_left, chart_right = st.columns(2)
 
     with chart_left:
-
-        if {
-            "timestamp",
-            "db_cpu_percent"
-        }.issubset(chart_data.columns):
-
+        if {"timestamp", "db_cpu_percent"}.issubset(chart_data.columns):
             fig = px.line(
                 chart_data,
                 x="timestamp",
@@ -1298,40 +1034,25 @@ if not metrics.empty:
                 title="Database CPU",
                 labels={
                     "timestamp": "Time",
-                    "db_cpu_percent":
-                        "DB CPU (%)",
-                }
+                    "db_cpu_percent": "DB CPU (%)",
+                },
             )
 
             fig.update_layout(
                 template="plotly_dark",
                 height=340,
-                margin=dict(
-                    l=10,
-                    r=10,
-                    t=45,
-                    b=10
-                ),
+                margin=dict(l=10, r=10, t=45, b=10),
                 paper_bgcolor="#0b0f14",
                 plot_bgcolor="#0b0f14",
             )
 
             st.plotly_chart(
                 fig,
-                use_container_width=True
+                width="stretch",
             )
 
-    # --------------------------------------------------------
-    # DATABASE LATENCY
-    # --------------------------------------------------------
-
     with chart_right:
-
-        if {
-            "timestamp",
-            "db_latency_ms"
-        }.issubset(chart_data.columns):
-
+        if {"timestamp", "db_latency_ms"}.issubset(chart_data.columns):
             fig = px.line(
                 chart_data,
                 x="timestamp",
@@ -1340,27 +1061,21 @@ if not metrics.empty:
                 title="Database Latency",
                 labels={
                     "timestamp": "Time",
-                    "db_latency_ms":
-                        "DB Latency (ms)",
-                }
+                    "db_latency_ms": "DB Latency (ms)",
+                },
             )
 
             fig.update_layout(
                 template="plotly_dark",
                 height=340,
-                margin=dict(
-                    l=10,
-                    r=10,
-                    t=45,
-                    b=10
-                ),
+                margin=dict(l=10, r=10, t=45, b=10),
                 paper_bgcolor="#0b0f14",
                 plot_bgcolor="#0b0f14",
             )
 
             st.plotly_chart(
                 fig,
-                use_container_width=True
+                width="stretch",
             )
 
 
@@ -1368,30 +1083,26 @@ if not metrics.empty:
 # ROOT CAUSE ANALYSIS
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">🧠 Root Cause Analysis</div>',
-    unsafe_allow_html=True
+render_html(
+    '<div class="section-title">🧠 Root Cause Analysis</div>'
 )
 
-st.markdown(
+render_html(
     f"""
     <div class="root-cause">
-
         <div class="root-cause-title">
             Most Likely Root Cause
         </div>
 
         <div class="root-cause-text">
-            {analysis["root_cause"]}
+            {html.escape(str(analysis["root_cause"]))}
         </div>
 
         <div class="confidence">
-            CONFIDENCE: {analysis["confidence"]}
+            CONFIDENCE: {html.escape(str(analysis["confidence"]))}
         </div>
-
     </div>
-    """,
-    unsafe_allow_html=True
+    """
 )
 
 
@@ -1399,134 +1110,74 @@ st.markdown(
 # DEPLOYMENT EVIDENCE
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">🚀 Deployment Evidence</div>',
-    unsafe_allow_html=True
+render_html(
+    '<div class="section-title">🚀 Deployment Evidence</div>'
 )
 
-
 if not relevant_deployments.empty:
+    for _, deployment in relevant_deployments.iterrows():
+        deployment_time = deployment.get("timestamp", "Unknown")
 
-    for _, deployment in (
-        relevant_deployments.iterrows()
-    ):
-
-        deployment_time = deployment.get(
-            "timestamp",
-            "Unknown"
-        )
-
-        if hasattr(
-            deployment_time,
-            "strftime"
-        ):
-
-            deployment_time = (
-                deployment_time.strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
+        if hasattr(deployment_time, "strftime"):
+            deployment_time = deployment_time.strftime(
+                "%Y-%m-%d %H:%M:%S"
             )
 
-        version = deployment.get(
-            "version",
-            "Unknown"
-        )
-
-        commit = deployment.get(
-            "commit_id",
-            "Unknown"
-        )
-
-        developer = deployment.get(
-            "developer",
-            "Unknown"
-        )
-
-        change = deployment.get(
-            "change",
-            "Unknown"
-        )
+        version = deployment.get("version", "Unknown")
+        commit = deployment.get("commit_id", "Unknown")
+        developer = deployment.get("developer", "Unknown")
+        change = deployment.get("change", "Unknown")
 
         minutes_before = ""
 
         if first_anomaly is not None:
-
             try:
-
                 diff = (
-                    first_anomaly
-                    - deployment["timestamp"]
+                    first_anomaly - deployment["timestamp"]
                 ).total_seconds() / 60
 
                 minutes_before = (
-                    f"{diff:.2f} minutes "
-                    "before first anomaly"
+                    f"{diff:.2f} minutes before first anomaly"
                 )
-
             except Exception:
-
                 minutes_before = ""
 
-        st.markdown(
+        render_html(
             f"""
             <div class="evidence-card">
-
                 <div class="evidence-title">
-                    Deployment {version}
+                    Deployment {html.escape(str(version))}
                 </div>
 
                 <div class="evidence-text">
-
-                    <b>Time:</b>
-                    {deployment_time}<br>
-
-                    <b>Commit:</b>
-                    {commit}<br>
-
-                    <b>Developer:</b>
-                    {developer}<br>
-
-                    <b>Change:</b>
-                    {change}<br>
-
-                    <b>Correlation:</b>
-                    {minutes_before}
-
+                    <b>Time:</b> {html.escape(str(deployment_time))}<br>
+                    <b>Commit:</b> {html.escape(str(commit))}<br>
+                    <b>Developer:</b> {html.escape(str(developer))}<br>
+                    <b>Change:</b> {html.escape(str(change))}<br>
+                    <b>Correlation:</b> {html.escape(str(minutes_before))}
                 </div>
-
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
-
 else:
-
-    st.info(
-        "No correlated deployments found."
-    )
+    st.info("No correlated deployments found.")
 
 
 # ============================================================
 # APPLICATION LOG EVIDENCE
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">📋 Application Log Evidence</div>',
-    unsafe_allow_html=True
+render_html(
+    '<div class="section-title">📋 Application Log Evidence</div>'
 )
 
-
 if not relevant_logs.empty:
-
     log_display = relevant_logs.copy()
 
     if "timestamp" in log_display.columns:
-
         log_display["timestamp"] = (
             log_display["timestamp"]
-            .dt.strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            .dt.strftime("%Y-%m-%d %H:%M:%S")
         )
 
     preferred_columns = [
@@ -1542,53 +1193,38 @@ if not relevant_logs.empty:
         if column in log_display.columns
     ]
 
-    log_display = log_display[
-        available_columns
-    ]
+    log_display = log_display[available_columns]
 
     st.dataframe(
         log_display,
-        use_container_width=True,
-        hide_index=True
+        width="stretch",
+        hide_index=True,
     )
-
 else:
-
-    st.info(
-        "No correlated application logs found."
-    )
+    st.info("No correlated application logs found.")
 
 
 # ============================================================
 # REMEDIATION
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">🛠️ Recommended Remediation</div>',
-    unsafe_allow_html=True
+render_html(
+    '<div class="section-title">🛠️ Recommended Remediation</div>'
 )
 
-
-for index, recommendation in enumerate(
-    remediation,
-    start=1
-):
-
-    st.markdown(
+for index, recommendation in enumerate(remediation, start=1):
+    render_html(
         f"""
         <div class="remediation">
-
             <span class="remediation-number">
                 {index:02d}
             </span>
 
             <span class="remediation-text">
-                {recommendation}
+                {html.escape(str(recommendation))}
             </span>
-
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
 
@@ -1596,79 +1232,51 @@ for index, recommendation in enumerate(
 # INVESTIGATION SUMMARY
 # ============================================================
 
-st.markdown(
-    '<div class="section-title">📌 Investigation Summary</div>',
-    unsafe_allow_html=True
+render_html(
+    '<div class="section-title">📌 Investigation Summary</div>'
 )
-
 
 summary_left, summary_right = st.columns(2)
 
-
 with summary_left:
-
-    st.markdown(
+    render_html(
         f"""
         <div class="evidence-card">
-
             <div class="evidence-title">
                 Investigation Coverage
             </div>
 
             <div class="evidence-text">
-
-                Metrics analyzed:
-                <b>{len(metrics)}</b><br>
-
-                ML anomalies:
-                <b>{len(anomalies)}</b><br>
-
-                Relevant logs:
-                <b>{len(relevant_logs)}</b><br>
-
-                Relevant deployments:
-                <b>{len(relevant_deployments)}</b>
-
+                Metrics analyzed: <b>{len(metrics)}</b><br>
+                ML anomalies: <b>{len(anomalies)}</b><br>
+                Relevant logs: <b>{len(relevant_logs)}</b><br>
+                Relevant deployments: <b>{len(relevant_deployments)}</b>
             </div>
-
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
-
 with summary_right:
-
     status = (
         "INCIDENT_DETECTED"
         if not anomalies.empty
         else "HEALTHY"
     )
 
-    st.markdown(
+    render_html(
         f"""
         <div class="evidence-card">
-
             <div class="evidence-title">
                 Incident Context
             </div>
 
             <div class="evidence-text">
-
-                Affected service:
-                <b>{affected_service}</b><br>
-
-                Investigation confidence:
-                <b>{analysis["confidence"]}</b><br>
-
-                Status:
-                <b>{status}</b>
-
+                Affected service: <b>{html.escape(str(affected_service))}</b><br>
+                Investigation confidence: <b>{html.escape(str(analysis["confidence"]))}</b><br>
+                Status: <b>{status}</b>
             </div>
-
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
 
@@ -1676,20 +1284,13 @@ with summary_right:
 # FOOTER
 # ============================================================
 
-st.markdown(
+render_html(
     """
     <div class="footer">
-
-        AegisAI — Multi-Agent Production
-        Incident Intelligence
-
+        AegisAI — Multi-Agent Production Incident Intelligence
         <br>
-
-        ML Detection • Log Correlation •
-        Deployment Analysis • Root Cause Intelligence •
-        Remediation
-
+        ML Detection • Log Correlation • Deployment Analysis •
+        Root Cause Intelligence • Remediation
     </div>
-    """,
-    unsafe_allow_html=True
+    """
 )
